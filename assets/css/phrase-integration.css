@@ -1,0 +1,19 @@
+/* TOEIC Speaking: isolated module #04. No styles of existing branches are changed. */
+.hubCards{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.hubCard{padding:24px 20px;min-height:340px}
+.hubCard strong{font-size:clamp(19px,1.7vw,23px)}
+.hubCard:nth-child(4) .hubCardIcon{background:#edf1ff}
+.hubCard:nth-child(4) .hubEnter{background:#000055}
+body[data-henry-page="phrase"]{overflow:hidden;background:#f5f7fe}
+body[data-henry-page="phrase"] .modebar{display:none!important}
+body[data-henry-page="phrase"] #henryHub,
+body[data-henry-page="phrase"] #examApp,
+body[data-henry-page="phrase"] #vocabApp,
+body[data-henry-page="phrase"] #lex551Screen{display:none!important}
+body[data-henry-page="hub"] #phraseGameScreen{display:none!important}
+#phraseGameScreen{display:block;width:100%;height:100dvh;overflow:hidden;margin:0;padding:0}
+#phraseGameScreen[hidden]{display:none!important}
+#phraseGameFrame{display:block;width:100%;height:100%;border:0;background:#f5f7fe}
+@media(max-width:1100px) and (min-width:721px){.hubCards{grid-template-columns:repeat(2,minmax(0,1fr))}.hubCard{min-height:305px}}
+@media(max-width:720px){.hubCards{grid-template-columns:1fr}.hubCard{min-height:0;padding:15px}.hubCard strong{font-size:19px}}
+@media print{#phraseGameScreen{display:none!important}}
