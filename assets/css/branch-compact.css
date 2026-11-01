@@ -1,0 +1,135 @@
+/* Three large, distinct entrances. Never show a branch underneath the hub. */
+body[data-henry-page="hub"]{overflow-x:hidden;background:#f5f7fe}
+body[data-henry-page="hub"] .modebar{display:none!important}
+body[data-henry-page="hub"] #examApp,
+body[data-henry-page="hub"] #vocabApp,
+body[data-henry-page="hub"] #lex551Screen{display:none!important}
+body[data-henry-page="exam"] #henryHub,
+body[data-henry-page="pron"] #henryHub,
+body[data-henry-page="lex"] #henryHub{display:none!important}
+body[data-henry-page="lex"] .modebar{display:none!important}
+body[data-henry-page="lex"]{overflow:hidden}
+.returnHub{border:1px solid #ffffff50;background:#ffffff1b;color:#fff;border-radius:12px;min-height:38px;padding:7px 15px;font-size:13px;font-weight:850;cursor:pointer;white-space:nowrap}
+.returnHub:hover{background:#ff6600;border-color:#ff6600}
+.modeactions{display:none!important}
+.modebar{min-height:56px;padding:7px clamp(15px,2vw,28px)}
+.modebrand{font-size:16px}.modebrand small{font-size:10px}
+#examApp{min-height:calc(100dvh - 56px)}
+#examApp .sidebar{height:calc(100dvh - 56px)}
+.henryHub{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px;background:radial-gradient(ellipse at 6% 0%,#edf0ff 0,transparent 35%),radial-gradient(ellipse at 95% 93%,#ffefe3 0,transparent 35%),#f6f8ff;font-family:system-ui,-apple-system,'Segoe UI',Arial,sans-serif}
+.hubInner{width:min(1320px,100%);margin:auto}
+.hubHeader{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:38px}
+.hubLogo{font-size:19px;font-weight:1000;letter-spacing:.015em;color:#000055}
+.hubLogo>span{color:#000055}.hubLogo em{font-style:normal;color:#ff6600}
+.hubLogo small{display:block;font-size:10px;letter-spacing:.13em;font-weight:800;margin-top:4px;color:#7c87a4}
+.hubTag{font-size:11px;border:1px solid #dfe3f2;background:#fff;border-radius:999px;color:#66718e;padding:9px 14px;font-weight:850}
+.hubIntro{margin-bottom:24px}
+.hubEyebrow{font-size:12px;letter-spacing:.17em;color:#ff6600;font-weight:950}
+.hubIntro h1{font-size:clamp(32px,4.4vw,62px);color:#000055;line-height:1.14;letter-spacing:-.035em;margin:9px 0 12px}
+.hubIntro h1 span{color:#ff6600}
+.hubIntro p{font-size:15px;color:#64718e;line-height:1.6;max-width:740px;margin:0}
+.hubCards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.hubCard{font:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:12px;padding:29px 27px;min-height:338px;border:1px solid #dfe5f0;border-radius:23px;background:#fff;color:#000055;box-shadow:0 14px 35px rgba(0,0,85,.045);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+.hubCard:hover,.hubCard:focus-visible{transform:translateY(-4px);border-color:#ff8c47;box-shadow:0 22px 45px rgba(0,0,85,.12);outline:none}
+.hubCard:active{transform:scale(.992)}
+.hubCardIcon{display:grid;place-items:center;font-size:34px;width:65px;height:65px;background:#f0f1ff;border-radius:18px}
+.hubCard:nth-child(3) .hubCardIcon{background:#fff0e5}
+.hubNum{font-size:11px;letter-spacing:.1em;color:#db6012;font-weight:950}
+.hubCard strong{font-size:clamp(21px,2vw,26px);line-height:1.23;color:#000055}
+.hubText{font-size:14px;color:#64718b;line-height:1.65;min-height:70px}
+.hubCount{font-weight:950;font-size:11px;letter-spacing:.07em;color:#687496}
+.hubEnter{align-self:stretch;margin-top:auto;display:flex;align-items:center;justify-content:space-between;background:#000055;color:white;border-radius:12px;font-weight:900;font-size:14px;padding:14px 16px}
+.hubCard:nth-child(3) .hubEnter{background:#ff6600}
+.hubEnter span{font-size:21px;line-height:1}
+.hubFooter{margin-top:28px;font-size:11px;font-weight:750;letter-spacing:.05em;text-align:center;color:#8290ad}
+/* Tighten the vocabulary workbench; reserve a true internal scrolling viewport for cards. */
+#lex551Screen{display:block;height:100dvh;min-height:0;overflow:hidden}
+#lex551Screen[hidden]{display:none!important}
+#lex551Screen .lexLayout{height:100%;max-width:1680px}
+#lex551Screen .lexTop{min-height:54px;max-height:58px;padding:8px 14px}
+#lex551Screen .lexTitle{font-size:14px}
+#lex551Screen .lexTitle small{font-size:9px;margin-top:1px}
+#lex551Screen .lexTop .lexTopBtn{min-height:34px;padding:7px 10px;font-size:11px}
+#lex551Screen .lexArea{grid-template-columns:228px minmax(0,1fr);padding:9px;gap:9px;min-height:0;flex:1;overflow:hidden}
+#lex551Screen .lexSide{padding:11px;border-radius:13px}
+#lex551Screen .lexSideHeading{margin-bottom:5px}
+#lex551Screen .lexCatBtn{padding:7px 8px;font-size:11px;line-height:1.35}
+#lex551Screen .lexCats{gap:2px;scrollbar-width:thin}
+#lex551Screen .lexContent{overflow:hidden;min-height:0;padding:11px 12px;border-radius:13px;display:flex;flex-direction:column}
+#lex551Screen #lexListMode{display:flex;flex-direction:column;min-height:0;flex:1;overflow:hidden}
+#lex551Screen #lexGameMode:not([hidden]){display:flex;flex-direction:column;min-height:0;overflow-y:auto;flex:1}
+#lex551Screen .lexEyebrow{font-size:9px;letter-spacing:.1em}
+#lex551Screen h1{font-size:clamp(20px,2.3vw,26px);margin:1px 0 2px}
+#lex551Screen .lexSub{font-size:11px;line-height:1.25}
+#lex551Screen .lexStat{font-size:10px;padding:6px 9px}
+#lex551Screen .lexToolbar{margin:8px 0;gap:7px;flex-wrap:nowrap}
+#lex551Screen .lexSearch{height:37px;min-width:80px;flex:1 1 auto;width:auto}
+#lex551Screen .lexBtn{min-height:35px;font-size:11px;padding:7px 9px;white-space:normal}
+#lex551Screen .lexQuick{padding:7px 0;gap:5px}
+#lex551Screen .lexQuick strong{font-size:11px;white-space:nowrap}
+#lex551Screen .lexRoundSelect{height:34px;padding:0 8px}
+#lex551Screen .lexModeBtns{padding:0 0 8px;gap:7px}
+#lex551Screen .lexModeBtn{padding:8px 5px;min-height:44px;font-size:12px;line-height:1.2}
+#lex551Screen .lexModeBtn span{display:inline;font-size:17px;margin-right:5px}
+#lex551Screen .lexWords{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:3px 6px 8px 2px;align-content:start;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;scrollbar-width:thin;scrollbar-color:#b7c3d9 #f0f3fa}
+#lex551Screen .lexWords::-webkit-scrollbar{width:9px}
+#lex551Screen .lexWords::-webkit-scrollbar-thumb{background:#b7c3d9;border-radius:10px}
+#lex551Screen .lexWords::-webkit-scrollbar-track{background:#f0f3fa;border-radius:10px}
+#lex551Screen .lexWord{padding:10px;border-radius:11px;min-width:0;align-self:stretch}
+#lex551Screen .lexWord b{font-size:15px;line-height:1.25}
+#lex551Screen .lexWordTop{gap:6px}
+#lex551Screen .lexWordTop input{width:16px;height:16px;flex-shrink:0}
+#lex551Screen .lexSpeak{height:34px;min-width:34px;font-size:16px;border-radius:9px}
+#lex551Screen .lexIPA{font-size:11px;margin-top:2px}
+#lex551Screen .lexMeta{font-size:10px;margin-top:2px}
+#lex551Screen .lexMeaning{font-size:12px;margin:6px 0 0;line-height:1.4}
+#lex551Screen .lexEx{font-size:11px;line-height:1.4;margin:6px 0 0;padding-top:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#lex551Screen .lexNote{display:none}
+#lex551Screen[data-lex-view="full"] .lexWords{grid-template-columns:repeat(2,minmax(0,1fr))}
+#lex551Screen[data-lex-view="full"] .lexWord{padding:13px}
+#lex551Screen[data-lex-view="full"] .lexEx{display:block;overflow:visible}
+#lex551Screen .lexGameBar{margin-bottom:9px}
+#lex551Screen .lexGameFrame{max-width:880px;width:100%}
+@media(max-width:1150px){#lex551Screen .lexWords{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:900px){
+ .henryHub{padding:20px}.hubCards{gap:12px}.hubCard{padding:22px 18px;min-height:360px}.hubCard strong{font-size:21px}
+ #lex551Screen .lexArea{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+ #lex551Screen .lexSide{display:none}
+ #lex551Screen .lexContent{flex:1;overflow:hidden;min-height:0}
+ #lex551Screen .lexMobileCat{display:block;width:45%;height:37px;flex:0 1 45%}
+ #lex551Screen .lexToolbar{flex-wrap:wrap}
+ #lex551Screen .lexWords{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:720px){
+ .henryHub{padding:18px 12px;align-items:flex-start}
+ .hubHeader{margin-bottom:20px}.hubTag{display:none}.hubIntro h1{font-size:clamp(29px,6vw,42px)}.hubIntro p{font-size:13px}
+ .hubCards{grid-template-columns:1fr;gap:10px}
+ .hubCard{min-height:0;display:grid;grid-template-columns:50px minmax(0,1fr);column-gap:12px;row-gap:7px;padding:15px}
+ .hubCardIcon{grid-row:1 / span 3;width:48px;height:48px;font-size:24px;border-radius:13px}
+ .hubCard strong{font-size:19px}.hubCard .hubNum{font-size:10px}
+ .hubCard .hubText,.hubCard .hubCount,.hubCard .hubEnter{grid-column:1 / -1}
+ .hubText{min-height:0;font-size:12px}.hubEnter{margin-top:4px;padding:11px 13px}.hubFooter{line-height:1.6}
+ .modebar{min-height:52px;padding:8px 12px}.modebrand{font-size:13px}.modebrand small{font-size:9px}.returnHub{font-size:11px;padding:7px 10px}
+ #examApp .sidebar{height:auto}
+ #lex551Screen .lexArea{padding:5px}
+ #lex551Screen .lexTop{padding:6px;min-height:48px}
+ #lex551Screen .lexTitle{font-size:11px}
+ #lex551Screen .lexTitle small{font-size:8px;letter-spacing:0}
+ #lex551Screen .lexTop .lexTopBtn{padding:6px;font-size:10px}
+ #lex551Screen .lexContent{padding:8px}
+ #lex551Screen .lexEyebrow{display:none}
+ #lex551Screen h1{font-size:19px}
+ #lex551Screen .lexSub{display:none}
+ #lex551Screen .lexStat{font-size:9px;padding:5px;white-space:normal}
+ #lex551Screen .lexWords{grid-template-columns:1fr;gap:6px}
+ #lex551Screen .lexWord{padding:9px}
+ #lex551Screen .lexQuick{max-height:88px;overflow-y:auto}
+ #lex551Screen .lexQuick .lexBtn{flex:0 1 auto;min-height:32px;padding:5px 7px}
+ #lex551Screen .lexModeBtns{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+ #lex551Screen .lexModeBtn{min-height:35px;padding:5px;font-size:11px}
+ #lex551Screen .lexToolbar{margin:5px 0}
+ #lex551Screen .lexMobileCat{width:100%;flex:1 1 100%}
+ #lex551Screen .lexSearch{flex:1 1 145px;width:auto}
+}
+@media(max-height:650px) and (min-width:901px){#lex551Screen .lexSub{display:none}#lex551Screen .lexEyebrow{display:none}}
+@media print{.henryHub{display:none!important}}
