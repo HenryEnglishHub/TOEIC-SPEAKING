@@ -22,6 +22,10 @@ const state={test:0,q:0,selected:new Set(),onlySelected:false,search:'',kind:'al
 try{const saved=JSON.parse(localStorage.getItem('toeic_phrase_game_selection_v1')||'[]');if(Array.isArray(saved))saved.forEach(id=>{if(BYID.has(id))state.selected.add(id)})}catch(e){}
 let toastTimer=null,ttsSeq=0,recognition=null,flyFrame=0,flyActors=[];
 let practiceTimer=null,practiceData=null,practiceRecorder=null,practiceStream=null,practiceChunks=[],practiceAudioUrl=null;
+let practiceSpeech=null,practiceAudioBlob=null,practiceCaptureSerial=0;
+const scriptStorageKey=()=>`toeic_practice_script_t${TESTS[state.test].test}_q${currentSection().question}`;
+const micErrorText=err=>({NotAllowedError:'Quyền micro bị từ chối. Hãy cấp quyền và thử lại.',NotFoundError:'Không tìm thấy micro trên thiết bị.',NotReadableError:'Micro đang được ứng dụng khác sử dụng.'}[err?.name]||'Không bật được micro. Hãy kiểm tra quyền truy cập và thử lại.');
+
 let audioContext=null;
 function effectSound(kind='tap'){
   try{
@@ -51,47 +55,195 @@ function cancelSound(){ttsSeq++;if('speechSynthesis' in window)speechSynthesis.c
 function say(text,lang='en',rate=1){if(!('speechSynthesis' in window)){toast('Trình duyệt chưa hỗ trợ đọc văn bản.');return}cancelSound();const u=new SpeechSynthesisUtterance(text);u.lang=lang==='vi'?'vi-VN':'en-GB';u.rate=rate;const v=getVoices(lang);if(v)u.voice=v;speechSynthesis.speak(u)}
 function saySequence(seq,status){if(!('speechSynthesis' in window)){toast('Trình duyệt không hỗ trợ đọc văn bản.');return}cancelSound();const token=ttsSeq;let i=0;function next(){if(token!==ttsSeq)return;if(i>=seq.length){if(status)status('Hoàn thành lượt nghe.');return}const item=seq[i++];if(status)status(item.note||'Đang phát âm...');const u=new SpeechSynthesisUtterance(item.text);u.lang=item.lang==='vi'?'vi-VN':'en-GB';u.rate=item.rate||1;const v=getVoices(item.lang);if(v)u.voice=v;u.onend=()=>{if(token===ttsSeq)setTimeout(next,window.__phraseEchoGapMs??230)};u.onerror=()=>{if(token===ttsSeq)setTimeout(next,window.__phraseEchoGapMs??230)};speechSynthesis.speak(u)}next()}
 function stopPracticeTimer(){if(practiceTimer){clearInterval(practiceTimer);practiceTimer=null;}}
-function stopPracticeMedia(){if(practiceRecorder&&practiceRecorder.state!=='inactive'){try{practiceRecorder.stop()}catch(e){}}if(practiceStream){practiceStream.getTracks().forEach(t=>t.stop());practiceStream=null;}}
-function resetPractice(opts={}){stopPracticeTimer();stopPracticeMedia();if(!opts.keepAudio&&practiceAudioUrl){URL.revokeObjectURL(practiceAudioUrl);practiceAudioUrl=null;}practiceData=null;}
+function stopPracticeSpeech(){
+ const rec=practiceSpeech;practiceSpeech=null;
+ if(rec){rec.onend=null;rec.onerror=null;rec.onresult=null;try{rec.stop()}catch(e){} }
+}
+function stopPracticeMedia(){
+ stopPracticeSpeech();
+ if(practiceRecorder&&practiceRecorder.state!=='inactive'){try{practiceRecorder.stop()}catch(e){}}
+ if(practiceStream){practiceStream.getTracks().forEach(t=>t.stop());practiceStream=null;}
+}
+function resetPractice(){
+ stopPracticeTimer();practiceCaptureSerial++;stopPracticeMedia();
+ if(practiceAudioUrl){URL.revokeObjectURL(practiceAudioUrl);practiceAudioUrl=null;}
+ practiceRecorder=null;practiceAudioBlob=null;practiceChunks=[];practiceData=null;
+}
 function practiceQuestionBlock(t,q){
-  const full=questionPrompt(t,q);
-  const timing=practiceTiming(q.question);
-  return `<section id="questionPreview" class="practice-question practice-question-prominent" aria-label="Câu hỏi luyện nói Question ${q.question}">
-    <div class="practice-question-copy">
-      <div class="practice-eyebrow">📝 ${groupLabel(t)} ${String(t.test).padStart(2,'0')} · QUESTION ${q.question} — CÂU HỎI LUYỆN NÓI</div>
-      <div class="practice-question-text" lang="en">${safe(full||q.title)}</div>
-      <div class="practice-question-hint">${full?'Đọc câu hỏi, học các cụm từ gợi ý bên dưới, rồi luyện nói khi sẵn sàng.':'Đây là chủ điểm luyện nói; chưa có câu hỏi nguyên văn trong nguồn.'}</div>
-      <div class="practice-question-time">⏱ Chuẩn bị ${timing.prep}s · Trả lời ${timing.answer}s</div>
-    </div>
-    <div class="practice-question-buttons">${full?'<button type="button" class="practice-secondary" data-action="read-question">🔊 Nghe câu hỏi</button>':''}<button type="button" class="practice-start" data-action="start-practice">⏱ Bắt đầu luyện nói</button></div>
-  </section>`;
+ const full=questionPrompt(t,q);
+ const timing=practiceTiming(q.question);
+ return `<section id="questionPreview" class="practice-question practice-question-prominent" aria-label="Câu hỏi luyện nói Question ${q.question}">
+ <div class="practice-question-copy"><div class="practice-eyebrow">📝 ${groupLabel(t)} ${String(t.test).padStart(2,'0')} · QUESTION ${q.question} — CÂU HỎI LUYỆN NÓI</div>
+ <div class="practice-question-text" lang="en">${safe(full||q.title)}</div>
+ <div class="practice-question-hint">${full?'Đọc câu hỏi, học các cụm từ gợi ý bên dưới, rồi luyện nói khi sẵn sàng.':'Đây là chủ điểm luyện nói; chưa có câu hỏi nguyên văn trong nguồn.'}</div>
+ <div class="practice-question-time">⏱ Chuẩn bị ${timing.prep}s · Trả lời ${timing.answer}s</div></div>
+ <div class="practice-question-buttons">${full?'<button type="button" class="practice-secondary" data-action="read-question">🔊 Nghe câu hỏi</button>':''}<button type="button" class="practice-start" data-action="start-practice">⏱ Bắt đầu luyện nói</button></div></section>`;
 }
 function mmss(sec){const n=Math.max(0,Math.ceil(sec));return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');}
+function scriptHint(p){return p.speechStatus||'Giọng Anh–Anh (en-GB). Nếu trình duyệt không hỗ trợ nhận diện, em vẫn có thể tự nhập script sau khi ghi âm.';}
 function practiceMarkup(){
  const t=TESTS[state.test],q=currentSection(),p=practiceData,full=questionPrompt(t,q),selectedForQuestion=q.items.filter(x=>state.selected.has(x.id));
  const picks=selectedForQuestion.length?selectedForQuestion:q.items;
  const options=picks.slice(0,12).map(x=>`<div class="practice-phrase"><strong>${safe(x.en)}</strong><small>${safe(x.vi)}</small></div>`).join('');
- const stage=p.stage==='ready'?'SẴN SÀNG':p.stage==='prep'?'THỜI GIAN CHUẨN BỊ':p.stage==='answer'?'ĐANG TRẢ LỜI':'HOÀN THÀNH';
+ const stage=p.paused?'ĐÃ TẠM DỪNG':p.busy?'ĐANG BẬT MICRO...':p.stage==='ready'?'SẴN SÀNG':p.stage==='prep'?'THỜI GIAN CHUẨN BỊ':p.stage==='answer'?'ĐANG TRẢ LỜI':'HOÀN THÀNH';
  const display=p.stage==='ready'?p.prep:p.remaining;
- return baseTop()+`<div class="container timed-practice-page"><div class="practice-back"><button class="btn" data-action="return-practice">← Quay lại học cụm từ</button></div><div class="timed-practice-card"><div class="practice-topline">⏱ TOEIC SPEAKING · LUYỆN NÓI CÓ ĐẾM GIỜ</div><div class="practice-current">${groupLabel(t)} ${String(t.test).padStart(2,'0')} · QUESTION ${q.question}</div><h2>${safe(full||q.title)}</h2>${full?'':`<div class="practice-source-note">Chưa có nguyên văn câu hỏi trong tài liệu TOPIC 11–34. Đây là tên chủ điểm, không phải câu hỏi gốc.</div>`}<div class="practice-clock-panel"><div class="clock-stage" id="clockStage">${stage}</div><div class="practice-clock" id="practiceClock" aria-live="off">${mmss(display)}</div><div class="practice-progress"><span id="practiceProgress" style="width:${p.stage==='done'?100:0}%"></span></div><div class="practice-presets">Chuẩn bị <b>${p.prep}s</b> · Trả lời <b>${p.answer}s</b> · Có thể điều chỉnh trước khi bắt đầu</div></div><div class="practice-settings"><label>Chuẩn bị (giây)<input type="number" min="0" max="180" step="1" data-action="practice-prep" value="${p.prep}" ${p.stage!=='ready'?'disabled':''}></label><label>Trả lời (giây)<input type="number" min="5" max="300" step="5" data-action="practice-answer" value="${p.answer}" ${p.stage!=='ready'?'disabled':''}></label></div><div class="practice-controls">${p.stage==='ready'?'<button class="btn orange" data-action="practice-go">▶ Bắt đầu tính giờ</button>':p.stage==='done'?'<button class="btn orange" data-action="practice-reset">↻ Luyện lại</button>':`<button class="btn orange" data-action="practice-pause">${p.paused?'▶ Tiếp tục':'⏸ Tạm dừng'}</button>`}<button class="btn" data-action="practice-reset">↻ Đặt lại</button>${full?'<button class="btn" data-action="read-question">🔊 Nghe câu hỏi</button>':''}<button class="btn" data-action="practice-next">Câu tiếp →</button></div><div class="practice-recording"><button class="btn" data-action="practice-record" id="recordBtn">🎙 Ghi âm (tùy chọn)</button><span id="recordStatus">Chỉ có thể ghi âm khi trình duyệt cho phép micro.</span><audio id="practiceAudio" controls hidden></audio></div></div><div class="practice-helpers"><h3>Gợi ý cụm từ cho Question ${q.question}</h3><p>${selectedForQuestion.length?'Những cụm bạn đã chọn trong Question này':'Các cụm từ gợi ý; có thể chọn trước ở màn hình danh sách'}</p><div class="practice-phrase-grid">${options}</div></div></div>`;
+ const isRecording=practiceRecorder?.state==='recording';
+ const canRecord=(p.stage==='answer'||p.stage==='done');
+ return baseTop()+`<div class="container timed-practice-page">
+ <div class="practice-back"><button class="btn" data-action="return-practice">← Quay lại học cụm từ</button></div>
+ <div class="timed-practice-card">
+   <div class="practice-topline">⏱ TOEIC SPEAKING · LUYỆN NÓI CÓ ĐẾM GIỜ</div>
+   <div class="practice-current">${groupLabel(t)} ${String(t.test).padStart(2,'0')} · QUESTION ${q.question}</div>
+   <h2>${safe(full||q.title)}</h2>
+   ${full?'':`<div class="practice-source-note">Chưa có nguyên văn câu hỏi từ nguồn; đang hiển thị tên chủ điểm.</div>`}
+   <div class="practice-clock-panel"><div class="clock-stage" id="clockStage">${stage}</div><div class="practice-clock" id="practiceClock" aria-live="off">${mmss(display)}</div><div class="practice-progress"><span id="practiceProgress" style="width:${p.stage==='done'?100:0}%"></span></div><div class="practice-presets">Chuẩn bị <b>${p.prep}s</b> · Trả lời <b>${p.answer}s</b></div></div>
+   <div class="practice-settings"><label>Chuẩn bị (giây)<input type="number" min="0" max="180" step="1" data-action="practice-prep" value="${p.prep}" ${p.stage!=='ready'?'disabled':''}></label><label>Trả lời (giây)<input type="number" min="5" max="300" step="5" data-action="practice-answer" value="${p.answer}" ${p.stage!=='ready'?'disabled':''}></label></div>
+   <label class="practice-auto"><input type="checkbox" data-action="practice-auto" ${p.autoCapture?'checked':''} ${p.stage!=='ready'?'disabled':''}><span><strong>Tự ghi âm + tạo script khi bắt đầu trả lời</strong><small>Hệ thống sẽ xin quyền micro khi em bấm Bắt đầu tính giờ. Nếu không hỗ trợ nhận diện giọng nói, vẫn có thể ghi âm hoặc nhập script.</small></span></label>
+   <div class="practice-controls">${p.stage==='ready'?`<button class="btn orange" data-action="practice-go" ${p.busy?'disabled':''}>${p.busy?'Đang kiểm tra micro...':'▶ Bắt đầu tính giờ'}</button>`:p.stage==='done'?'<button class="btn orange" data-action="practice-reset">↻ Luyện lại</button>':`<button class="btn orange" data-action="practice-pause">${p.paused?'▶ Tiếp tục':'⏸ Tạm dừng'}</button>`}<button class="btn" data-action="practice-reset">↻ Đặt lại</button>${full?'<button class="btn" data-action="read-question">🔊 Nghe câu hỏi</button>':''}<button class="btn" data-action="practice-next">Câu tiếp →</button></div>
+   <section class="practice-review" aria-label="Ghi âm và script câu trả lời">
+      <div class="practice-review-header"><div><h3>🎙 Bản ghi âm & script câu trả lời</h3><p>Nghe lại giọng nói và đọc lại những gì em đã trả lời.</p></div><span class="practice-indicator" id="captureIndicator">${isRecording?'● Đang ghi âm':p.stage==='done'?'Đã kết thúc':'Luyện nói'}</span></div>
+      <div class="practice-recording"><button class="btn" data-action="practice-record" id="recordBtn" ${!canRecord?'disabled':''}>${isRecording?'⏹ Dừng ghi âm':'🎙 '+(p.stage==='done'?'Ghi âm thêm':'Ghi âm ngay')}</button><button class="btn" data-action="practice-transcribe" ${!canRecord?'disabled':''}>📝 ${p.recognizing?'⏹ Dừng nhận diện':'Bật nhận diện lại'}</button><span id="recordStatus" role="status">${safe(p.recordStatus||'Bản ghi chỉ lưu tạm trong trình duyệt cho đến khi tải về.')}</span></div>
+      <div class="practice-audio-player"><audio id="practiceAudio" controls ${practiceAudioUrl?'':'hidden'} ${practiceAudioUrl?`src="${practiceAudioUrl}"`:''}></audio><button class="btn" data-action="practice-download-audio" ${practiceAudioBlob?'':'disabled'}>⬇ Tải bản ghi âm</button></div>
+      <label class="practice-script-label" for="practiceTranscript">📝 SCRIPT CÂU TRẢ LỜI CỦA EM</label>
+      <textarea id="practiceTranscript" lang="en" rows="6" placeholder="Script sẽ xuất hiện ở đây khi trình duyệt nhận diện được lời nói. Em cũng có thể gõ hoặc sửa lại câu trả lời." ${p.stage==='answer'&&p.recognizing?'readonly':''}>${safe(p.transcript)}</textarea>
+      <div id="practiceInterim" class="practice-interim" aria-live="polite">${safe(p.interim||'')}</div>
+      <div id="practiceSpeechStatus" class="practice-speech-status" role="status">${safe(scriptHint(p))}</div>
+      <div class="practice-script-actions"><button type="button" class="btn" data-action="practice-copy-script">📋 Sao chép script</button><button type="button" class="btn" data-action="practice-download-script">⬇ Tải script .txt</button><button type="button" class="btn" data-action="practice-save-script">💾 Lưu script trên máy</button><button type="button" class="btn" data-action="practice-clear-script">Xoá script</button></div>
+      <p class="practice-privacy">Dữ liệu ghi âm không tự gửi lên máy chủ website; hãy tải file trước khi rời trang. Tính năng chuyển giọng nói thành chữ phụ thuộc Chrome/Edge hoặc trình duyệt hỗ trợ, có thể xử lý âm thanh qua dịch vụ nhận diện của nhà cung cấp và có thể nhận sai từ.</p>
+   </section>
+ </div>
+ <div class="practice-helpers"><h3>Gợi ý cụm từ cho Question ${q.question}</h3><p>${selectedForQuestion.length?'Những cụm bạn đã chọn trong Question này':'Các cụm từ gợi ý; có thể chọn trước ở màn hình danh sách'}</p><div class="practice-phrase-grid">${options}</div></div></div>`;
 }
-function renderPractice(){app.innerHTML=practiceMarkup();}
+function renderPractice(){if(!practiceData)return;app.innerHTML=practiceMarkup();}
+function updatePracticeUI(){
+ const p=practiceData;if(!p||state.screen!=='timed')return;
+ const st=document.getElementById('recordStatus'),speech=document.getElementById('practiceSpeechStatus'),ta=document.getElementById('practiceTranscript'),interim=document.getElementById('practiceInterim'),audio=document.getElementById('practiceAudio'),btn=document.getElementById('recordBtn'),indicator=document.getElementById('captureIndicator');
+ if(st)st.textContent=p.recordStatus||'';
+ if(speech)speech.textContent=scriptHint(p);
+ if(ta&&ta.value!==p.transcript){ta.value=p.transcript;}
+ if(ta)ta.readOnly=p.stage==='answer'&&p.recognizing;
+ if(interim)interim.textContent=p.interim||'';
+ if(audio&&practiceAudioUrl&&audio.src!==practiceAudioUrl){audio.src=practiceAudioUrl;audio.hidden=false;}
+ if(btn)btn.textContent=practiceRecorder?.state==='recording'?'⏹ Dừng ghi âm':'🎙 '+(p.stage==='done'?'Ghi âm thêm':'Ghi âm ngay');
+ const transcribe=document.querySelector('[data-action="practice-transcribe"]');if(transcribe){transcribe.disabled=false;transcribe.textContent=p.recognizing?'⏹ Dừng nhận diện':'📝 Bật nhận diện lại';}
+ if(indicator)indicator.textContent=practiceRecorder?.state==='recording'?'● Đang ghi âm':p.stage==='done'?'Đã kết thúc':p.paused?'Đã tạm dừng':'Luyện nói';
+ const download=document.querySelector('[data-action="practice-download-audio"]');if(download)download.disabled=!practiceAudioBlob;
+}
+function startPracticeSpeech(p){
+ const C=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!C){p.speechStatus='Trình duyệt chưa hỗ trợ chuyển giọng nói thành chữ. Hãy nhập script sau khi nói.';updatePracticeUI();return;}
+ if(practiceSpeech)return;
+ let r;try{r=new C();}catch(e){p.speechStatus='Không khởi tạo được nhận diện giọng nói.';updatePracticeUI();return;}
+ practiceSpeech=r;r.lang='en-GB';r.continuous=true;r.interimResults=true;r.maxAlternatives=1;
+ const baseline=p.transcript.trim();p.recognizing=true;
+ p.speechStatus='Đang chuyển lời nói tiếng Anh thành chữ...';
+ r.onresult=ev=>{
+  if(practiceData!==p)return;
+  const finished=[],unfinished=[];
+  for(let i=0;i<ev.results.length;i++){
+   const item=ev.results[i],word=item[0]?.transcript?.trim();if(!word)continue;
+   (item.isFinal?finished:unfinished).push(word);
+  }
+  p.transcript=[baseline,finished.join(' ')].filter(Boolean).join(' ').trim();p.interim=unfinished.join(' ');
+  updatePracticeUI();
+ };
+ r.onerror=ev=>{if(practiceData!==p)return;if(practiceSpeech===r)practiceSpeech=null;p.speechStatus='Nhận diện bị gián đoạn ('+ev.error+'). Em có thể bấm Bật nhận diện lại hoặc tự sửa script.';p.recognizing=false;updatePracticeUI();};
+ r.onend=()=>{if(practiceSpeech===r)practiceSpeech=null;if(practiceData===p){p.recognizing=false;p.interim='';updatePracticeUI();}};
+ try{r.start();}catch(e){if(practiceSpeech===r)practiceSpeech=null;p.recognizing=false;p.speechStatus='Không bật được nhận diện giọng nói. Em có thể nhập script thủ công.';}
+ updatePracticeUI();
+}
+function beginPracticeCapture(p){
+ if(practiceData!==p)return;
+ if(!practiceRecorder||practiceRecorder.state==='inactive'){
+  if(practiceStream&&window.MediaRecorder){
+   try{
+    practiceChunks=[];const recorder=new MediaRecorder(practiceStream);practiceRecorder=recorder;
+    recorder.ondataavailable=ev=>{if(ev.data?.size)practiceChunks.push(ev.data);};
+    recorder.onstop=()=>{
+     if(practiceData!==p)return;
+     if(practiceChunks.length){
+      if(practiceAudioUrl)URL.revokeObjectURL(practiceAudioUrl);
+      practiceAudioBlob=new Blob(practiceChunks,{type:recorder.mimeType||'audio/webm'});
+      practiceAudioUrl=URL.createObjectURL(practiceAudioBlob);
+      p.recordStatus='Đã lưu bản ghi tạm. Bấm Play để nghe lại hoặc Tải bản ghi âm để giữ file.';
+     }
+     if(practiceStream){practiceStream.getTracks().forEach(t=>t.stop());practiceStream=null;}
+     updatePracticeUI();
+    };
+    recorder.start(200);p.recordStatus='Đang ghi âm câu trả lời...';
+   }catch(e){p.recordStatus='Không thể khởi động ghi âm: '+e.message;}
+  } else if(!p.recordStatus)p.recordStatus='Chưa có micro; có thể nhập script thủ công.';
+ }
+ startPracticeSpeech(p);
+ updatePracticeUI();
+}
+function finishPracticeCapture(p){
+ stopPracticeSpeech();if(p){const last=p.interim.trim();if(last&&!p.transcript.endsWith(last))p.transcript=[p.transcript,last].filter(Boolean).join(' ');p.recognizing=false;p.interim='';if(p.stage==='done'&&p.speechStatus.includes('Đang chuyển'))p.speechStatus='Đã kết thúc lượt nói. Em có thể đọc lại và sửa script bên dưới.';}
+ if(practiceRecorder&&practiceRecorder.state!=='inactive'){try{practiceRecorder.stop()}catch(e){}}
+ else if(practiceStream){practiceStream.getTracks().forEach(t=>t.stop());practiceStream=null;}
+ updatePracticeUI();
+}
 function practiceTick(){
  const p=practiceData;if(!p||p.paused||p.stage==='ready'||p.stage==='done')return;
- const now=Date.now();p.remaining=Math.max(0,Math.ceil((p.until-now)/1000));
+ p.remaining=Math.max(0,Math.ceil((p.until-Date.now())/1000));
  const d=document.getElementById('practiceClock'),label=document.getElementById('clockStage'),progress=document.getElementById('practiceProgress');
- if(d)d.textContent=mmss(p.remaining);if(progress)progress.style.width=(100*(1-p.remaining/Math.max(1,p.stage==='prep'?p.prep:p.answer)))+'%';
- if(p.remaining===0){effectSound('right');if(p.stage==='prep'){p.stage='answer';p.remaining=p.answer;p.until=Date.now()+p.answer*1000;renderPractice();}else{p.stage='done';stopPracticeTimer();stopPracticeMedia();renderPractice();}}
- else if(label)label.textContent=p.stage==='prep'?'THỜI GIAN CHUẨN BỊ':'ĐANG TRẢ LỜI';
+ if(d)d.textContent=mmss(p.remaining);
+ if(progress)progress.style.width=(100*(1-p.remaining/Math.max(1,p.stage==='prep'?p.prep:p.answer)))+'%';
+ if(p.remaining===0){
+  effectSound('right');
+  if(p.stage==='prep'){p.stage='answer';p.remaining=p.answer;p.until=Date.now()+p.answer*1000;renderPractice();if(p.autoCapture)beginPracticeCapture(p);}
+  else{p.stage='done';stopPracticeTimer();finishPracticeCapture(p);renderPractice();}
+ }else if(label)label.textContent=p.stage==='prep'?'THỜI GIAN CHUẨN BỊ':'ĐANG TRẢ LỜI';
 }
-function practiceGo(){const p=practiceData;if(!p)return;p.stage=p.prep>0?'prep':'answer';p.paused=false;p.remaining=p.prep>0?p.prep:p.answer;p.until=Date.now()+p.remaining*1000;stopPracticeTimer();practiceTimer=setInterval(practiceTick,180);renderPractice();}
-function openPractice(){cancelSound();stopFlying();resetPractice();const q=currentSection(),t=practiceTiming(q.question);practiceData={stage:'ready',prep:t.prep,answer:t.answer,remaining:t.prep,paused:false,until:null};state.screen='timed';renderPractice();scrollTo(0,0);}
+async function practiceGo(){
+ const p=practiceData;if(!p||p.busy||p.stage!=='ready')return;
+ p.busy=true;
+ if(p.autoCapture){
+  p.recordStatus='Đang yêu cầu quyền micro...';renderPractice();
+  if(!navigator.mediaDevices?.getUserMedia){p.recordStatus='Cần HTTPS và trình duyệt hỗ trợ micro để ghi âm.';}
+  else{
+   try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
+    if(practiceData!==p){stream.getTracks().forEach(t=>t.stop());return;}
+    practiceStream=stream;
+    p.recordStatus=window.MediaRecorder?'Đã bật micro. Sẽ tự ghi âm khi bắt đầu trả lời.':'Trình duyệt không hỗ trợ ghi âm, nhưng có thể thử tạo script.';
+   }catch(e){p.recordStatus=micErrorText(e);p.speechStatus='Chưa bật được micro; em vẫn có thể luyện nói và gõ lại script.';}
+  }
+ }
+ if(practiceData!==p)return;
+ p.busy=false;p.stage=p.prep>0?'prep':'answer';p.paused=false;
+ p.remaining=p.prep>0?p.prep:p.answer;p.until=Date.now()+p.remaining*1000;
+ stopPracticeTimer();practiceTimer=setInterval(practiceTick,180);renderPractice();
+ if(p.stage==='answer'&&p.autoCapture)beginPracticeCapture(p);
+}
+function openPractice(){
+ cancelSound();stopFlying();resetPractice();
+ const q=currentSection(),t=practiceTiming(q.question);let saved='';
+ try{saved=localStorage.getItem(scriptStorageKey())||''}catch(e){}
+ practiceData={stage:'ready',prep:t.prep,answer:t.answer,remaining:t.prep,paused:false,until:null,busy:false,autoCapture:true,transcript:saved,interim:'',recognizing:false,speechStatus:saved?'Đã khôi phục script bạn lưu trước đó trên thiết bị này.':'',recordStatus:'Chưa ghi âm. Hãy chọn Bắt đầu tính giờ.'};
+ state.screen='timed';renderPractice();scrollTo(0,0);
+}
 async function togglePracticeRecording(){
- const btn=document.getElementById('recordBtn'),status=document.getElementById('recordStatus'),player=document.getElementById('practiceAudio');
- if(practiceRecorder&&practiceRecorder.state==='recording'){practiceRecorder.stop();if(btn)btn.textContent='🎙 Ghi âm lại';if(status)status.textContent='Đã dừng ghi âm.';return}
- if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){if(status)status.textContent='Thiết bị hoặc trình duyệt không hỗ trợ ghi âm.';return}
- try{stopPracticeMedia();practiceStream=await navigator.mediaDevices.getUserMedia({audio:true});practiceChunks=[];const recorder=new MediaRecorder(practiceStream);practiceRecorder=recorder;recorder.ondataavailable=e=>{if(e.data?.size)practiceChunks.push(e.data)};recorder.onstop=()=>{if(practiceChunks.length){if(practiceAudioUrl)URL.revokeObjectURL(practiceAudioUrl);practiceAudioUrl=URL.createObjectURL(new Blob(practiceChunks,{type:recorder.mimeType||'audio/webm'}));const a=document.getElementById('practiceAudio');if(a){a.src=practiceAudioUrl;a.hidden=false}}if(practiceStream){practiceStream.getTracks().forEach(t=>t.stop());practiceStream=null}const st=document.getElementById('recordStatus');if(st)st.textContent='Bấm Play để nghe lại bài nói.'};recorder.start();if(btn)btn.textContent='⏹ Dừng ghi âm';if(status)status.textContent='Đang ghi âm trên thiết bị...';}catch(e){if(status)status.textContent='Không bật được micro. Hãy cấp quyền trên trình duyệt.'}
+ const p=practiceData;if(!p||p.stage==='ready'||p.stage==='prep')return;
+ if(practiceRecorder?.state==='recording'||practiceRecorder?.state==='paused'){
+  finishPracticeCapture(p);p.recordStatus='Đã dừng ghi âm. Em có thể nghe lại hoặc tải xuống.';updatePracticeUI();return;
+ }
+ if(!navigator.mediaDevices?.getUserMedia){p.recordStatus='Trình duyệt này chưa hỗ trợ micro hoặc chưa dùng HTTPS.';updatePracticeUI();return;}
+ if(!practiceStream){
+  try{
+   const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+   if(practiceData!==p){stream.getTracks().forEach(t=>t.stop());return;}
+   practiceStream=stream;
+  }catch(e){p.recordStatus=micErrorText(e);updatePracticeUI();return;}
+ }
+ beginPracticeCapture(p);
 }
+function downloadPracticeBlob(blob,filename){
+ if(!blob){toast('Chưa có nội dung để tải.');return;}
+ const uri=URL.createObjectURL(blob),a=document.createElement('a');a.href=uri;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(uri),30000);
+}
+function scriptFilename(ext){const t=TESTS[state.test],q=currentSection();return 'TOEIC-'+groupLabel(t)+'-'+String(t.test).padStart(2,'0')+'-Q'+q.question+'-answer.'+ext;}
+function readEditedScript(){const txt=document.getElementById('practiceTranscript');if(txt&&practiceData)practiceData.transcript=txt.value;return (practiceData?.transcript||'').trim();}
 function currentSection(){return TESTS[state.test].sections[state.q]}
 function selectedItems(){return ALL.filter(x=>state.selected.has(x.id))}
 function filtered(){let items=state.onlySelected?selectedItems():currentSection().items;const query=normalize(state.search);if(query)items=items.filter(x=>normalize(x.en).includes(query)||normalize(x.vi).includes(query)||normalize(x.example).includes(query));if(state.kind!=='all')items=items.filter(x=>x.category===state.kind);return items}
@@ -252,10 +404,37 @@ if(a==='start-practice'){openPractice();return}
 if(a==='read-question'){const t=TESTS[state.test],q=currentSection(),str=questionPrompt(t,q);if(str)say(str);return}
 if(a==='return-practice'){resetPractice();state.screen='list';render();return}
 if(a==='practice-go'){practiceGo();return}
-if(a==='practice-pause'){if(!practiceData)return;if(practiceData.paused){practiceData.paused=false;practiceData.until=Date.now()+practiceData.remaining*1000;}else{practiceData.paused=true;practiceData.remaining=Math.max(0,Math.ceil((practiceData.until-Date.now())/1000));}renderPractice();return}
+if(a==='practice-pause'){
+ const p=practiceData;if(!p)return;
+ if(p.paused){p.paused=false;p.until=Date.now()+p.remaining*1000;if(practiceRecorder?.state==='paused')try{practiceRecorder.resume()}catch(e){}if(p.stage==='answer'&&p.autoCapture)startPracticeSpeech(p);}
+ else{p.paused=true;p.remaining=Math.max(0,Math.ceil((p.until-Date.now())/1000));if(practiceRecorder?.state==='recording')try{practiceRecorder.pause()}catch(e){}stopPracticeSpeech();p.recognizing=false;}
+ renderPractice();return;
+}
 if(a==='practice-reset'){openPractice();return}
 if(a==='practice-next'){if(state.q<TESTS[state.test].sections.length-1)state.q++;else if(state.test<TESTS.length-1){state.test++;state.q=0}else{state.test=0;state.q=0}openPractice();return}
 if(a==='practice-record'){togglePracticeRecording();return}
+if(a==='practice-transcribe'){const p=practiceData;if(!p)return;if(p.recognizing){stopPracticeSpeech();p.recognizing=false;p.speechStatus='Đã dừng nhận diện; script vẫn được giữ lại.';updatePracticeUI();}else if(p.stage==='answer'||p.stage==='done')startPracticeSpeech(p);return;}
+if(a==='practice-download-audio'){
+ if(practiceRecorder?.state==='recording'){toast('Hãy dừng ghi âm trước khi tải.');return;}
+ const mime=practiceAudioBlob?.type||'',ext=mime.includes('mp4')?'m4a':mime.includes('ogg')?'ogg':'webm';
+ downloadPracticeBlob(practiceAudioBlob,scriptFilename(ext));return;
+}
+if(a==='practice-copy-script'){
+ const str=readEditedScript();if(!str){toast('Script đang trống.');return;}
+ if(navigator.clipboard?.writeText)navigator.clipboard.writeText(str).then(()=>toast('Đã sao chép script.')).catch(()=>toast('Không sao chép được, hãy chọn văn bản thủ công.'));
+ else{const ta=document.getElementById('practiceTranscript');ta?.select();try{document.execCommand('copy');toast('Đã sao chép script.')}catch(e){toast('Hãy chọn văn bản để sao chép.')}}return;
+}
+if(a==='practice-download-script'){
+ const txt=readEditedScript();if(!txt){toast('Script đang trống.');return;}
+ downloadPracticeBlob(new Blob([questionPrompt(TESTS[state.test],currentSection())+'\n\n'+txt],{type:'text/plain;charset=utf-8'}),scriptFilename('txt'));return;
+}
+if(a==='practice-save-script'){
+ const txt=readEditedScript();if(!txt){toast('Script đang trống.');return;}
+ try{localStorage.setItem(scriptStorageKey(),txt);toast('Đã lưu script trên thiết bị này.')}catch(e){toast('Trình duyệt không thể lưu script. Hãy tải file .txt.')}return;
+}
+if(a==='practice-clear-script'){
+ const p=practiceData;if(!p)return;p.transcript='';p.interim='';try{localStorage.removeItem(scriptStorageKey())}catch(e){}updatePracticeUI();toast('Đã xoá phần chữ. Bản ghi âm vẫn giữ nguyên.');return;
+}
 if(a==='topic-prev'||a==='topic-next'){state.test=Math.min(TESTS.length-1,Math.max(0,state.test+(a==='topic-next'?1:-1)));state.q=0;state.search='';state.onlySelected=false;render();return}
 if(a==='test'){state.test=+btn.dataset.index;state.q=0;state.search='';state.onlySelected=false;render();return}
 if(a==='q'){state.q=+btn.dataset.index;state.onlySelected=false;state.search='';render();return}
@@ -304,6 +483,7 @@ function onChange(e){const t=e.target;let a=t.dataset.action;
 if(a==='toggle'){if(t.checked)state.selected.add(t.dataset.id);else state.selected.delete(t.dataset.id);persist();const row=t.closest('.wordrow');row?.classList.toggle('selected',t.checked);if(state.onlySelected)refreshRows();const s=document.getElementById('selCount');if(s)s.textContent=state.selected.size+' cụm đã chọn';return}
 if(a==='only-selected'){state.onlySelected=t.checked;refreshRows();const heading=document.querySelector('.kb-cards-heading h3');if(heading)heading.textContent=state.onlySelected?'CÁC CỤM TỪ ĐÃ CHỌN':`QUESTION ${currentSection().question} – ${currentSection().title}`;return}
 if(a==='test-select'){state.test=+t.value;state.q=0;state.onlySelected=false;state.search='';render();return}
+if(state.screen==='timed'&&a==='practice-auto'&&practiceData?.stage==='ready'){practiceData.autoCapture=t.checked;return}
 if(state.screen==='timed'){if(a==='practice-prep'&&practiceData?.stage==='ready'){practiceData.prep=Math.max(0,Math.min(180,parseInt(t.value)||0));practiceData.remaining=practiceData.prep;const n=document.getElementById('practiceClock');if(n)n.textContent=mmss(practiceData.prep)}if(a==='practice-answer'&&practiceData?.stage==='ready'){practiceData.answer=Math.max(5,Math.min(300,parseInt(t.value)||15))}return}if(state.screen!=='game')return;const g=state.game;
 if(a==='fly-lang'){g.lang=t.value;flySpeak();return}
 if(a==='fly-speed'){g.speed=+t.value;const el=document.getElementById('flySpeedLabel');if(el)el.textContent=g.speed+'×';return}
@@ -313,8 +493,11 @@ app.addEventListener('pointerdown',e=>{
  if(e.button!==undefined&&e.button!==0)return;
  e.preventDefault();chooseFlying(b.dataset.id,b);
 });
-app.addEventListener('click',onClick);app.addEventListener('change',onChange);app.addEventListener('input',e=>{if(e.target.id==='phraseSearch'){state.search=e.target.value;refreshRows()}});
+app.addEventListener('click',onClick);app.addEventListener('change',onChange);app.addEventListener('input',e=>{
+ if(e.target.id==='phraseSearch'){state.search=e.target.value;refreshRows()}
+ if(e.target.id==='practiceTranscript'&&practiceData&&!practiceData.recognizing){practiceData.transcript=e.target.value;}
+});
 window.addEventListener('beforeunload',()=>{resetPractice();stopFlying();cancelSound()});
-window.addEventListener('message',e=>{if(e.data&&e.data.type==='HENRY_TOEIC_PAUSE'){stopPracticeTimer();stopPracticeMedia();stopFlying();cancelSound()}});
+window.addEventListener('message',e=>{if(e.data&&e.data.type==='HENRY_TOEIC_PAUSE'){stopPracticeTimer();if(practiceData){practiceData.stage='done';finishPracticeCapture(practiceData);renderPractice()}stopFlying();cancelSound()}});
 render();
 })();
