@@ -179,3 +179,47 @@ body{background:#f4f6fb}
 .practice-script-actions .btn{font-size:12px;padding:9px 12px}
 .practice-privacy{font-size:11px!important;color:#738099!important;line-height:1.65;margin:15px 0 0}
 @media (max-width:760px){.practice-review{padding:14px}.practice-review-header h3{font-size:17px}.practice-audio-player audio{min-width:0;width:100%;flex-basis:100%}.practice-script-actions .btn{flex:1 1 44%}#practiceTranscript{font-size:16px;min-height:185px}.practice-review .practice-recording{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.practice-review .practice-recording .btn{width:100%;min-width:0;white-space:normal;font-size:12px}.practice-review .practice-recording span{grid-column:1/-1;min-width:0;line-height:1.5}.practice-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.practice-controls .btn{min-width:0;white-space:normal;line-height:1.4;font-size:12px}}
+
+
+/* Optimized timed speaking layout */
+.practice-layout-card{padding:22px}
+.practice-headbar{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap}
+.practice-headcopy{flex:1 1 620px;min-width:0}
+.practice-headcopy h2{margin:8px 0 6px;font-size:clamp(18px,2.6vw,28px);line-height:1.3}
+.practice-headtools{display:flex;flex-direction:column;gap:10px;align-items:flex-end;min-width:220px}
+.practice-mini-time{padding:10px 14px;border-radius:12px;background:#f6f8fe;border:1px solid #dfe6f7;color:#000055;font-size:13px;font-weight:850;text-align:right}
+.practice-main-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(300px,.9fr);gap:16px;align-items:stretch}
+.practice-clock-wrap,.practice-side-panel{display:flex;flex-direction:column;gap:14px}
+.practice-clock-panel{height:100%;display:flex;flex-direction:column;justify-content:center;min-height:265px;padding:20px 14px}
+.practice-clock{font-size:clamp(48px,8vw,92px);margin:6px 0}
+.practice-progress{margin:0 auto 10px}
+.practice-controls-primary{margin:0;justify-content:stretch}
+.practice-controls-primary .btn{flex:1 1 0}
+.practice-settings-card,.practice-mini-helpers{border:1px solid #dfe6f7;background:#fbfcff;border-radius:16px;padding:14px}
+.practice-settings-title{font-size:14px;font-weight:950;color:#000055;margin-bottom:10px}
+.practice-settings{justify-content:flex-start;margin:0;gap:10px}
+.practice-settings label{flex:1 1 0;display:flex;flex-direction:column;align-items:flex-start;gap:6px;font-size:12px}
+.practice-settings input{width:100%}
+.practice-auto-compact{margin:0}
+.practice-mini-helpers p{margin:0 0 10px;color:#66748f;font-size:12px;line-height:1.5}
+.practice-mini-chip-list{display:flex;flex-wrap:wrap;gap:8px}
+.practice-mini-chip{display:inline-flex;align-items:center;padding:8px 10px;border-radius:999px;background:#eef3ff;border:1px solid #d8e1fb;color:#000055;font-size:12px;font-weight:800;line-height:1.35}
+.practice-review{margin-top:16px}
+.practice-script-actions{display:flex;flex-wrap:wrap;gap:8px}
+.practice-script-actions .btn{flex:1 1 180px}
+@media (max-width:900px){
+ .practice-main-grid{grid-template-columns:1fr}
+ .practice-headtools{width:100%;align-items:stretch}
+ .practice-mini-time{text-align:left}
+}
+@media (max-width:760px){
+ .practice-layout-card{padding:14px}
+ .practice-headbar{gap:12px;margin-bottom:12px}
+ .practice-headcopy h2{font-size:clamp(18px,6vw,24px)}
+ .practice-headtools{min-width:0}
+ .practice-main-grid{gap:12px}
+ .practice-clock-panel{min-height:220px;padding:18px 12px}
+ .practice-settings{grid-template-columns:1fr 1fr;display:grid}
+ .practice-controls-primary{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+ .practice-mini-chip{width:100%;justify-content:flex-start;border-radius:12px}
+}

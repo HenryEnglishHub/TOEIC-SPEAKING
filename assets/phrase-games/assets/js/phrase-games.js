@@ -85,23 +85,43 @@ function practiceMarkup(){
  const t=TESTS[state.test],q=currentSection(),p=practiceData,full=questionPrompt(t,q),selectedForQuestion=q.items.filter(x=>state.selected.has(x.id));
  const picks=selectedForQuestion.length?selectedForQuestion:q.items;
  const options=picks.slice(0,12).map(x=>`<div class="practice-phrase"><strong>${safe(x.en)}</strong><small>${safe(x.vi)}</small></div>`).join('');
+ const quickPicks=picks.slice(0,6).map(x=>`<span class="practice-mini-chip">${safe(x.en)}</span>`).join('');
  const stage=p.paused?'ĐÃ TẠM DỪNG':p.busy?'ĐANG BẬT MICRO...':p.stage==='ready'?'SẴN SÀNG':p.stage==='prep'?'THỜI GIAN CHUẨN BỊ':p.stage==='answer'?'ĐANG TRẢ LỜI':'HOÀN THÀNH';
  const display=p.stage==='ready'?p.prep:p.remaining;
  const isRecording=practiceRecorder?.state==='recording';
  const canRecord=(p.stage==='answer'||p.stage==='done');
  return baseTop()+`<div class="container timed-practice-page">
  <div class="practice-back"><button class="btn" data-action="return-practice">← Quay lại học cụm từ</button></div>
- <div class="timed-practice-card">
-   <div class="practice-topline">⏱ TOEIC SPEAKING · LUYỆN NÓI CÓ ĐẾM GIỜ</div>
-   <div class="practice-current">${groupLabel(t)} ${String(t.test).padStart(2,'0')} · QUESTION ${q.question}</div>
-   <h2>${safe(full||q.title)}</h2>
-   ${full?'':`<div class="practice-source-note">Chưa có nguyên văn câu hỏi từ nguồn; đang hiển thị tên chủ điểm.</div>`}
-   <div class="practice-clock-panel"><div class="clock-stage" id="clockStage">${stage}</div><div class="practice-clock" id="practiceClock" aria-live="off">${mmss(display)}</div><div class="practice-progress"><span id="practiceProgress" style="width:${p.stage==='done'?100:0}%"></span></div><div class="practice-presets">Chuẩn bị <b>${p.prep}s</b> · Trả lời <b>${p.answer}s</b></div></div>
-   <div class="practice-settings"><label>Chuẩn bị (giây)<input type="number" min="0" max="180" step="1" data-action="practice-prep" value="${p.prep}" ${p.stage!=='ready'?'disabled':''}></label><label>Trả lời (giây)<input type="number" min="5" max="300" step="5" data-action="practice-answer" value="${p.answer}" ${p.stage!=='ready'?'disabled':''}></label></div>
-   <label class="practice-auto"><input type="checkbox" data-action="practice-auto" ${p.autoCapture?'checked':''} ${p.stage!=='ready'?'disabled':''}><span><strong>Tự ghi âm + tạo script khi bắt đầu trả lời</strong><small>Hệ thống sẽ xin quyền micro khi em bấm Bắt đầu tính giờ. Nếu không hỗ trợ nhận diện giọng nói, vẫn có thể ghi âm hoặc nhập script.</small></span></label>
-   <div class="practice-controls">${p.stage==='ready'?`<button class="btn orange" data-action="practice-go" ${p.busy?'disabled':''}>${p.busy?'Đang kiểm tra micro...':'▶ Bắt đầu tính giờ'}</button>`:p.stage==='done'?'<button class="btn orange" data-action="practice-reset">↻ Luyện lại</button>':`<button class="btn orange" data-action="practice-pause">${p.paused?'▶ Tiếp tục':'⏸ Tạm dừng'}</button>`}<button class="btn" data-action="practice-reset">↻ Đặt lại</button>${full?'<button class="btn" data-action="read-question">🔊 Nghe câu hỏi</button>':''}<button class="btn" data-action="practice-next">Câu tiếp →</button></div>
+ <div class="timed-practice-card practice-layout-card">
+   <div class="practice-headbar">
+     <div class="practice-headcopy">
+       <div class="practice-topline">⏱ TOEIC SPEAKING · LUYỆN NÓI CÓ ĐẾM GIỜ</div>
+       <div class="practice-current">${groupLabel(t)} ${String(t.test).padStart(2,'0')} · QUESTION ${q.question}</div>
+       <h2>${safe(full||q.title)}</h2>
+       ${full?'':`<div class="practice-source-note">Chưa có nguyên văn câu hỏi từ nguồn; đang hiển thị tên chủ điểm.</div>`}
+     </div>
+     <div class="practice-headtools">
+       <div class="practice-mini-time">⏱ Chuẩn bị <b>${p.prep}s</b> · Trả lời <b>${p.answer}s</b></div>
+       ${full?'<button class="btn" data-action="read-question">🔊 Nghe câu hỏi</button>':''}
+       <button class="btn" data-action="practice-next">Câu tiếp →</button>
+     </div>
+   </div>
+   <div class="practice-main-grid">
+     <section class="practice-clock-wrap">
+       <div class="practice-clock-panel"><div class="clock-stage" id="clockStage">${stage}</div><div class="practice-clock" id="practiceClock" aria-live="off">${mmss(display)}</div><div class="practice-progress"><span id="practiceProgress" style="width:${p.stage==='done'?100:0}%"></span></div><div class="practice-presets">Chuẩn bị <b>${p.prep}s</b> · Trả lời <b>${p.answer}s</b></div></div>
+       <div class="practice-controls practice-controls-primary">${p.stage==='ready'?`<button class="btn orange" data-action="practice-go" ${p.busy?'disabled':''}>${p.busy?'Đang kiểm tra micro...':'▶ Bắt đầu tính giờ'}</button>`:p.stage==='done'?'<button class="btn orange" data-action="practice-reset">↻ Luyện lại</button>':`<button class="btn orange" data-action="practice-pause">${p.paused?'▶ Tiếp tục':'⏸ Tạm dừng'}</button>`}<button class="btn" data-action="practice-reset">↻ Đặt lại</button></div>
+     </section>
+     <section class="practice-side-panel">
+       <div class="practice-settings-card">
+         <div class="practice-settings-title">Thiết lập thời gian</div>
+         <div class="practice-settings"><label>Chuẩn bị (giây)<input type="number" min="0" max="180" step="1" data-action="practice-prep" value="${p.prep}" ${p.stage!=='ready'?'disabled':''}></label><label>Trả lời (giây)<input type="number" min="5" max="300" step="5" data-action="practice-answer" value="${p.answer}" ${p.stage!=='ready'?'disabled':''}></label></div>
+       </div>
+       <label class="practice-auto practice-auto-compact"><input type="checkbox" data-action="practice-auto" ${p.autoCapture?'checked':''} ${p.stage!=='ready'?'disabled':''}><span><strong>Tự ghi âm + tạo script</strong><small>Xin quyền micro khi bắt đầu trả lời. Nếu nhận diện chưa hỗ trợ, em vẫn có thể ghi âm hoặc tự nhập script.</small></span></label>
+       <div class="practice-mini-helpers"><div class="practice-settings-title">Gợi ý nhanh</div><p>${selectedForQuestion.length?'Các cụm bạn đã chọn cho câu này':'Một số cụm gợi ý để triển khai câu trả lời'}</p><div class="practice-mini-chip-list">${quickPicks}</div></div>
+     </section>
+   </div>
    <section class="practice-review" aria-label="Ghi âm và script câu trả lời">
-      <div class="practice-review-header"><div><h3>🎙 Bản ghi âm & script câu trả lời</h3><p>Nghe lại giọng nói và đọc lại những gì em đã trả lời.</p></div><span class="practice-indicator" id="captureIndicator">${isRecording?'● Đang ghi âm':p.stage==='done'?'Đã kết thúc':'Luyện nói'}</span></div>
+      <div class="practice-review-header"><div><h3>🎙 Bản ghi âm & script câu trả lời</h3><p>Nghe lại giọng nói và đọc lại phần trả lời của em.</p></div><span class="practice-indicator" id="captureIndicator">${isRecording?'● Đang ghi âm':p.stage==='done'?'Đã kết thúc':'Luyện nói'}</span></div>
       <div class="practice-recording"><button class="btn" data-action="practice-record" id="recordBtn" ${!canRecord?'disabled':''}>${isRecording?'⏹ Dừng ghi âm':'🎙 '+(p.stage==='done'?'Ghi âm thêm':'Ghi âm ngay')}</button><button class="btn" data-action="practice-transcribe" ${!canRecord?'disabled':''}>📝 ${p.recognizing?'⏹ Dừng nhận diện':'Bật nhận diện lại'}</button><span id="recordStatus" role="status">${safe(p.recordStatus||'Bản ghi chỉ lưu tạm trong trình duyệt cho đến khi tải về.')}</span></div>
       <div class="practice-audio-player"><audio id="practiceAudio" controls ${practiceAudioUrl?'':'hidden'} ${practiceAudioUrl?`src="${practiceAudioUrl}"`:''}></audio><button class="btn" data-action="practice-download-audio" ${practiceAudioBlob?'':'disabled'}>⬇ Tải bản ghi âm</button></div>
       <label class="practice-script-label" for="practiceTranscript">📝 SCRIPT CÂU TRẢ LỜI CỦA EM</label>
