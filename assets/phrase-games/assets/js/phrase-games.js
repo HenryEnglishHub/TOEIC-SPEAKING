@@ -5,13 +5,16 @@ const TESTS=[...(window.PHRASE_DATA||[]),...(window.PHRASE_DATA_EXTRA||[])];
 const groupLabel=t=>t?.kind==='topic'?'TOPIC':'TEST';
 const ALL=TESTS.flatMap(t=>t.sections.flatMap(q=>q.items));
 const BYID=new Map(ALL.map(x=>[x.id,x]));
+const META=window.PHRASE_META||{};
+for(const item of ALL){const m=META[item.id]||{};item.category=m.category||'Word combination';item.example=m.example||'';}
+
 const app=document.getElementById('app'),toastbox=document.getElementById('toast');
 const safe=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const shuffle=a=>[...a].sort(()=>Math.random()-.5);
 const rand=a=>a[Math.floor(Math.random()*a.length)];
 const normalize=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[’‘]/g,"'").replace(/[^a-z0-9\s']/g,' ').replace(/\s+/g,' ').trim();
 const byID=id=>BYID.get(id);
-const state={test:0,q:0,selected:new Set(),onlySelected:false,search:'',screen:'list',game:null};
+const state={test:0,q:0,selected:new Set(),onlySelected:false,search:'',kind:'all',screen:'list',game:null};
 try{const saved=JSON.parse(localStorage.getItem('toeic_phrase_game_selection_v1')||'[]');if(Array.isArray(saved))saved.forEach(id=>{if(BYID.has(id))state.selected.add(id)})}catch(e){}
 let toastTimer=null,ttsSeq=0,recognition=null,flyFrame=0,flyActors=[];
 let audioContext=null;
@@ -44,42 +47,71 @@ function say(text,lang='en',rate=1){if(!('speechSynthesis' in window)){toast('Tr
 function saySequence(seq,status){if(!('speechSynthesis' in window)){toast('Trình duyệt không hỗ trợ đọc văn bản.');return}cancelSound();const token=ttsSeq;let i=0;function next(){if(token!==ttsSeq)return;if(i>=seq.length){if(status)status('Hoàn thành lượt nghe.');return}const item=seq[i++];if(status)status(item.note||'Đang phát âm...');const u=new SpeechSynthesisUtterance(item.text);u.lang=item.lang==='vi'?'vi-VN':'en-GB';u.rate=item.rate||1;const v=getVoices(item.lang);if(v)u.voice=v;u.onend=()=>{if(token===ttsSeq)setTimeout(next,window.__phraseEchoGapMs??230)};u.onerror=()=>{if(token===ttsSeq)setTimeout(next,window.__phraseEchoGapMs??230)};speechSynthesis.speak(u)}next()}
 function currentSection(){return TESTS[state.test].sections[state.q]}
 function selectedItems(){return ALL.filter(x=>state.selected.has(x.id))}
-function filtered(){let items=state.onlySelected?selectedItems():currentSection().items;const query=normalize(state.search);if(query)items=items.filter(x=>normalize(x.en).includes(query)||normalize(x.vi).includes(query));return items}
+function filtered(){let items=state.onlySelected?selectedItems():currentSection().items;const query=normalize(state.search);if(query)items=items.filter(x=>normalize(x.en).includes(query)||normalize(x.vi).includes(query)||normalize(x.example).includes(query));if(state.kind!=='all')items=items.filter(x=>x.category===state.kind);return items}
 function baseTop(){const onList=state.screen==='list';return `<header class="topbar"><div class="logo"><span class="logo-icon">✦</span><div>TOEIC SPEAKING<small>PHRASE PRACTICE</small></div></div><div class="top-right"><button type="button" class="top-back" data-action="${onList?'return-hub':'home'}">${onList?'← TRANG CHÍNH':'← DANH SÁCH CỤM TỪ'}</button></div></header>`}
 function overview(){return ''}
 function render(){if(state.screen==='list'){renderList();requestAnimationFrame(()=>{const nav=document.querySelector('.sidebar'),btn=nav?.querySelector('.testbtn.active');if(nav&&btn)nav.scrollTop=Math.max(0,btn.offsetTop-nav.offsetTop-115)});return}if(state.screen==='menu')return renderMenu();return renderGame()}
 function renderList(){
  const t=TESTS[state.test],q=currentSection(),list=filtered(),group=groupLabel(t);
- const topicOptions=TESTS.map((item,i)=>`<option value="${i}" ${i===state.test?'selected':''}>${groupLabel(item)} ${String(item.test).padStart(2,'0')} · ${safe(item.title)}</option>`).join('');
+ const options=TESTS.map((item,i)=>`<option value="${i}" ${i===state.test?'selected':''}>${groupLabel(item)} ${String(item.test).padStart(2,'0')} · ${safe(item.title)}</option>`).join('');
+ const CATS=['all','Verb phrase','Collocation','Word combination','Time expression'];
+ const tabs=[['flash','🗂️ Flashcard'],['quiz','✅ Trắc nghiệm'],['fly','🚀 Chữ bay'],['match','🧩 Ghép từ'],['echo','🔁 Word Echo'],['viquiz','🇻🇳 Việt → Chọn Anh'],['vispeak','🎤 Việt → Nói Anh'],['fill','✍️ Điền từ']];
  app.innerHTML=baseTop()+`<div class="container phrase-workspace">
-   <main class="contentbox phrases-panel">
-     <div class="topic-toolbar">
-       <div class="topic-toolbar-copy"><span class="topic-kicker">HỌC CỤM TỪ · TOEIC SPEAKING</span><div class="topic-toolbar-title">Chọn bộ đề / chủ đề</div></div>
-       <div class="topic-switch"><button class="topic-arrow" data-action="topic-prev" aria-label="Chủ đề trước" ${state.test===0?'disabled':''}>‹</button><select id="topicPicker" aria-label="Chọn TEST hoặc TOPIC" data-action="test-select">${topicOptions}</select><button class="topic-arrow" data-action="topic-next" aria-label="Chủ đề tiếp theo" ${state.test===TESTS.length-1?'disabled':''}>›</button></div>
-     </div>
-     <div class="topic-identity"><div class="identity-main"><span class="topic-eyebrow">${group} ${String(t.test).padStart(2,'0')}</span><h1>${safe(t.title)}</h1></div><span class="topic-count">${t.sections.reduce((n,x)=>n+x.items.length,0)} cụm từ</span></div>
-     <div class="question-tabs" role="group" aria-label="Chọn câu hỏi">${t.sections.map((section,i)=>`<button class="qtab ${i===state.q&&!state.onlySelected?'active':''}" data-action="q" data-index="${i}" aria-pressed="${i===state.q&&!state.onlySelected}">QUESTION ${section.question}</button>`).join('')}</div>
-     <div class="sectionlabel"><strong>${state.onlySelected?'⭐ Các cụm từ đã chọn':`QUESTION ${q.question} · ${safe(q.title)}`}</strong><span class="section-count">${list.length} cụm từ</span></div>
-     <div class="toolbar phrase-toolbar"><label class="search-wrap"><span class="search-icon">⌕</span><input class="search" id="phraseSearch" type="search" placeholder="Tìm tiếng Anh hoặc nghĩa tiếng Việt…" value="${safe(state.search)}" autocomplete="off" aria-label="Tìm cụm từ"></label><div class="bulk-actions"><button class="btn flat" data-action="select-visible">✓ Chọn tất cả</button><button class="btn flat" data-action="clear-visible">Bỏ chọn</button><label class="toggle"><input type="checkbox" data-action="only-selected" ${state.onlySelected?'checked':''}> Chỉ xem đã chọn</label></div></div>
-     <div class="list-head"><span>CHỌN</span><span>CỤM TỪ TIẾNG ANH · IPA</span><span>NGHĨA TIẾNG VIỆT</span><span>NGHE</span></div>
-     <div class="phrase-list" id="phraseList">${wordRows(list)}</div>
-   </main></div>${pickbar()}`;
+  <section class="kb-hero"><div class="kb-kicker">✦ TOEIC SPEAKING · PHRASE KNOWLEDGE BANK</div><h1>Học cụm từ & luyện tập</h1><p>Chọn cụm từ có IPA, nghĩa và ví dụ, sau đó luyện qua các trò chơi ghi nhớ.</p></section>
+  <main class="contentbox phrases-panel">
+    <div class="kb-filters">
+      <div class="topic-switch"><button class="topic-arrow" data-action="topic-prev" aria-label="Chủ đề trước" ${state.test===0?'disabled':''}>‹</button><label class="topic-select"><span>CHỌN BỘ ĐỀ / CHỦ ĐỀ</span><select id="topicPicker" data-action="test-select" aria-label="Chọn bộ đề hoặc chủ đề">${options}</select></label><button class="topic-arrow" data-action="topic-next" aria-label="Chủ đề sau" ${state.test===TESTS.length-1?'disabled':''}>›</button></div>
+      <label class="search-wrap"><span class="search-icon">⌕</span><input id="phraseSearch" class="search" type="search" autocomplete="off" placeholder="Tìm cụm từ, IPA, nghĩa hoặc ví dụ..." value="${safe(state.search)}"></label>
+      <div class="filter-buttons"><button class="btn flat" data-action="select-visible">✓ Chọn tất cả</button><button class="btn flat" data-action="clear-visible">Bỏ chọn</button><label class="toggle"><input type="checkbox" data-action="only-selected" ${state.onlySelected?'checked':''}> Chỉ từ đã chọn</label></div>
+    </div>
+    <div class="topic-identity"><div class="identity-main"><span class="topic-eyebrow">${group} ${String(t.test).padStart(2,'0')}</span><h2>${safe(t.title)}</h2></div><div class="selected-inline"><strong id="selCount">${state.selected.size} cụm đã chọn</strong><button class="mini-clear" data-action="clear-all">Bỏ chọn tất cả</button></div></div>
+    <div class="question-tabs" role="group" aria-label="Chọn câu hỏi">${t.sections.map((s,i)=>`<button class="qtab ${state.q===i&&!state.onlySelected?'active':''}" data-action="q" data-index="${i}">QUESTION ${s.question}</button>`).join('')}</div>
+    <div class="kb-game-tabs"><button class="kb-learn-tab active" type="button" data-action="learn-only">📚 Học cụm từ</button>${tabs.map(([mode,label])=>`<button type="button" data-action="start-game" data-mode="${mode}">${label}</button>`).join('')}</div>
+    <div class="kb-cards-heading"><div><h3>${state.onlySelected?'CÁC CỤM TỪ ĐÃ CHỌN':`QUESTION ${q.question} – ${safe(q.title)}`}</h3><p>Chạm cả thẻ để chọn học · nút 🔊 để nghe phát âm Anh Anh.</p></div><span class="section-count">${list.length} cụm từ</span></div>
+    <div class="category-bar"><span>PHÂN LOẠI:</span>${CATS.map(c=>`<button data-action="kind" data-kind="${c}" class="category-filter ${state.kind===c?'active':''}">${c==='all'?'Tất cả':c}</button>`).join('')}</div>
+    <div class="phrase-list" id="phraseList">${wordRows(list)}</div>
+  </main>
+ </div>`;
 }
-function wordRows(list){return list.length?list.map(x=>`<div class="wordrow ${state.selected.has(x.id)?'selected':''}" data-row="${x.id}" data-action="row-select"><label><input type="checkbox" data-action="toggle" data-id="${x.id}" aria-label="Chọn ${safe(x.en)}" ${state.selected.has(x.id)?'checked':''}></label>${englishLine(x)}<div class="vi">${safe(x.vi)}</div><button class="listen" title="Nghe phát âm" aria-label="Nghe ${safe(x.en)}" data-action="speak" data-id="${x.id}">🔊</button></div>`).join(''):`<div class="empty">Không có cụm từ phù hợp. Hãy thử từ khóa khác nhé.</div>`}
-function pickbar(){const n=state.selected.size;return `<div class="pickbar"><div class="pickbar-inner"><div class="pickicon">🎮</div><div class="pickcopy"><strong id="selCount">${n} cụm từ đã chọn</strong><small>Lựa chọn được giữ lại khi đổi TEST, TOPIC hoặc QUESTION</small></div><button class="btn ghost" data-action="clear-all">Bỏ chọn tất cả</button><button class="btn orange" data-action="menu">🎮 HỌC QUA 8 GAME →</button></div></div>`}
-function refreshRows(){const pane=document.getElementById('phraseList');if(pane)pane.innerHTML=wordRows(filtered());const n=document.getElementById('selCount');if(n)n.textContent=state.selected.size+' cụm từ đã chọn';const q=document.querySelector('.sectionlabel .topic-count');if(q)q.textContent=filtered().length+' cụm từ';}
+function wordRows(list){return list.length?list.map(x=>`<div class="wordrow ${state.selected.has(x.id)?'selected':''}" data-row="${x.id}" data-action="row-select" role="group" aria-label="${safe(x.en)}"><label class="check-cell"><input type="checkbox" data-action="toggle" data-id="${x.id}" aria-label="Chọn ${safe(x.en)}" ${state.selected.has(x.id)?'checked':''}></label><div class="phrase-card-body"><div class="en">${safe(x.en)}${ipaLine(x)}</div><div class="vi">${safe(x.vi)}</div><div class="example"><span class="example-label">EXAMPLE</span> ${safe(x.example)}</div></div><span class="phrase-type">${safe(x.category)}</span><button class="listen" data-action="speak" data-id="${x.id}" title="Nghe phát âm">🔊</button></div>`).join(''):`<div class="empty">Không có cụm từ phù hợp. Hãy thử bộ lọc khác.</div>`}
+function pickbar(){return ''}
+function refreshRows(){const pane=document.getElementById('phraseList');if(pane)pane.innerHTML=wordRows(filtered());const el=document.getElementById('selCount');if(el)el.textContent=state.selected.size+' cụm đã chọn';const count=document.querySelector('.kb-cards-heading .section-count');if(count)count.textContent=filtered().length+' cụm từ'}
+
 const MODES=[['flash','🃏','Flashcard','Lật thẻ Anh – Việt để ghi nhớ'],['match','🧩','Ghép từ','Ghép đúng cụm từ với nghĩa'],['quiz','✅','Trắc nghiệm','Đọc tiếng Anh, chọn nghĩa đúng'],['viquiz','🇻🇳','Việt → Chọn Anh','Nghe/đọc nghĩa và chọn cụm từ'],['vispeak','🎤','Việt → Nói Anh','Nhìn nghĩa, tự nói lại tiếng Anh'],['fill','✍️','Điền từ','Chọn từ còn thiếu trong cụm'],['fly','🚀','Chữ bay','Nghe Anh hoặc Việt, chạm đúng cụm'],['echo','🔁','Word Echo','Nghe nhanh → chậm, luyện nhắc lại']];
 function renderMenu(){app.innerHTML=baseTop()+`<div class="container"><div class="game-shell"><button class="backlink" data-action="home">← Quay lại chọn cụm từ</button><section class="game-intro"><div class="game-intro-header"><div><span class="eyebrow">🎮 IELTS-STYLE VOCABULARY GAMES</span><h2>Chọn trò chơi ghi nhớ</h2><p>Đã chọn <b>${state.selected.size}</b> cụm từ. Mỗi game chỉ sử dụng những cụm từ bạn đã chọn.</p></div><span class="topic-count">8 GAME</span></div><div class="mode-grid">${MODES.map(m=>`<button class="mode" data-action="start-game" data-mode="${m[0]}"><span class="mode-icon">${m[1]}</span><strong>${m[2]}</strong><small>${m[3]}</small></button>`).join('')}</div></section><p class="footer-tip">Các trò chơi sử dụng đúng những cụm từ bạn đã chọn.</p></div></div>`}
 function startGame(mode){const deck=selectedItems();if(!deck.length){state.screen='list';render();toast('Hãy chọn ít nhất 1 cụm từ trước khi chơi.');return}if(mode==='match'&&deck.length<2){toast('Game Ghép từ cần chọn ít nhất 2 cụm từ.');return}cancelSound();state.screen='game';const g={mode,deck:shuffle(deck),i:0,score:0,answered:false,choice:null,flipped:false,round:0,lang:'en',speed:1.65,repeats:5,startRate:3,endRate:1,gapMs:400,autoPlay:true,recognitionResult:'',showAnswer:false,playing:false};state.game=g;if(mode==='match')setupMatch();if(mode==='fill')g.fillQuestion=makeFillQ(g.deck[0]);if(mode==='fly')setupFly();renderGame();if(mode==='fly'){setTimeout(()=>{if(state.screen==='game'&&state.game===g)flySpeak()},250)}else if(mode==='flash'){say(g.deck[g.i].en)}}
 function gameTitle(){return MODES.find(m=>m[0]===state.game.mode)?.[2]||'Game'}
 function gameStep(){const g=state.game;return `${Math.min(g.i+1,g.deck.length)} / ${g.deck.length}`}
-function renderGame(){const g=state.game;stopFlying();app.innerHTML=baseTop()+`<div class="container"><div class="game-shell"><button class="backlink" data-action="menu">← Chọn trò chơi khác</button><div class="game-nav"><div><h2>${MODES.find(m=>m[0]===g.mode)[1]} ${gameTitle()}</h2><p>${g.deck.length} cụm từ đã chọn · Học theo đúng danh sách của bạn</p></div><div class="score" id="gameScore">⭐ ${g.score} ĐIỂM</div></div><main class="game-area" id="gameArea">${gameMarkup()}</main></div></div>`;if(g.mode==='fly'&&!g.finished)placeFlyingWords();}
-function stage(){if(state.game.mode==='fly')stopFlying();const e=document.getElementById('gameArea');if(e)e.innerHTML=gameMarkup();if(state.game.mode==='fly'&&!state.game.finished)placeFlyingWords();const s=document.getElementById('gameScore');if(s)s.textContent='⭐ '+state.game.score+' ĐIỂM'}
+function renderGame(){
+ const g=state.game;stopFlying();
+ if(g.mode==='fly'){
+   app.innerHTML=flyFullScreenMarkup();
+   if(!g.finished){placeFlyingWords();setTimeout(()=>{if(state.game===g&&state.screen==='game')flySpeak()},250);}
+   return;
+ }
+ if(g.mode==='echo'){
+   app.innerHTML=`<div class="word-echo-host"><iframe class="word-echo-frame" id="echoFrame" title="Word Echo – TOEIC Speaking" allow="autoplay"></iframe><button class="word-echo-exit" data-action="home">← Danh sách cụm từ</button></div>`;
+   const f=document.getElementById('echoFrame');
+   try{
+     const encoded=window.TOEIC_WORD_ECHO_B64||'';
+     const template=new TextDecoder().decode(Uint8Array.from(atob(encoded),c=>c.charCodeAt(0)));
+     const words=g.deck.map(x=>({en:x.en,vi:x.vi,ipa:x.ipa||'',pos:x.category||'Cụm từ',cefr:'',example:x.example||'',exampleVI:''}));
+     const json=JSON.stringify(words).replace(/</g,'\\u003c').replace(/>/g,'\\u003e');
+     const pattern=/const words=\[[\s\S]*?\];(?=\s*const \$=id)/;
+     if(!pattern.test(template))throw Error('No Word Echo data slot');
+     f.srcdoc=template.replace(pattern,()=>`const words=${json};`);
+   }catch(err){console.error('Word Echo source unavailable',err);app.innerHTML=baseTop()+`<main class="container"><p>Không tải được Word Echo. Vui lòng thử mở trang trên Chrome hoặc Edge.</p><button class="btn orange" data-action="home">← Quay lại</button></main>`}
+   return;
+ }
+ app.innerHTML=baseTop()+`<div class="container"><div class="game-shell"><button class="backlink" data-action="home">← Danh sách cụm từ</button><div class="game-nav"><div><h2>${MODES.find(m=>m[0]===g.mode)[1]} ${gameTitle()}</h2><p>${g.deck.length} cụm từ đã chọn</p></div><div class="score" id="gameScore">⭐ ${g.score} ĐIỂM</div></div><main class="game-area" id="gameArea">${gameMarkup()}</main></div></div>`;
+}
+function stage(){const g=state.game;if(g.mode==='fly'||g.mode==='echo'){renderGame();return}const e=document.getElementById('gameArea');if(e)e.innerHTML=gameMarkup();const score=document.getElementById('gameScore');if(score)score.textContent='⭐ '+g.score+' ĐIỂM'}
+
 function progress(i,total){return `<div class="game-top"><span class="step">CỤM TỪ ${i+1} / ${total}</span><span class="step">${Math.round((i/total)*100)}% HOÀN THÀNH</span></div><div class="progress-track"><div class="progress-fill" style="width:${i/total*100}%"></div></div>`}
 function gameMarkup(){const g=state.game;if(g.finished)return resultMarkup();if(g.mode==='flash')return flashMarkup();if(g.mode==='quiz'||g.mode==='viquiz')return quizMarkup();if(g.mode==='fill')return fillMarkup();if(g.mode==='match')return matchMarkup();if(g.mode==='vispeak')return speakMarkup();if(g.mode==='fly')return flyMarkup();if(g.mode==='echo')return echoMarkup();return ''}
 function finish(){stopFlying();cancelSound();state.game.finished=true;stage()}
 function resultMarkup(){const g=state.game;return `<div class="result"><div class="trophy">🏆</div><span class="eyebrow">HOÀN THÀNH</span><h2>Giỏi lắm! Bạn đã hoàn thành.</h2><p>${safe(gameTitle())} · ${g.deck.length} cụm từ</p><div class="finalscore">⭐ ${g.score} điểm</div><div class="game-actions"><button class="btn navy" data-action="replay-game">↻ Chơi lại</button><button class="btn orange" data-action="menu">🎮 Game khác</button><button class="btn" data-action="home">📚 Chọn thêm cụm từ</button></div></div>`}
-function flashMarkup(){const g=state.game,x=g.deck[g.i];return progress(g.i,g.deck.length)+`<button class="flashcard ${g.flipped?'reversed':''}" data-action="flip"><small>${g.flipped?'NGHĨA TIẾNG VIỆT':'COLLOCATION & PHRASE'}</small><b>${safe(g.flipped?x.vi:x.en)}</b>${g.flipped?`<strong class="flash-back-english">${safe(x.en)}</strong>`:''}${ipaLine(x)}<span>Chạm vào thẻ để lật ↻ · Mỗi lần lật sẽ tự đọc tiếng Anh</span></button><div class="game-actions"><button class="btn" data-action="flash-prev" ${g.i===0?'disabled':''}>← Trước</button><button class="btn" data-action="speak" data-id="${x.id}">🔊 Nghe tiếng Anh</button><button class="btn orange" data-action="flash-next">${g.i===g.deck.length-1?'Hoàn thành ✓':'Tiếp theo →'}</button></div>`}
+function flashMarkup(){const g=state.game,x=g.deck[g.i];return progress(g.i,g.deck.length)+`<button class="flashcard ${g.flipped?'reversed':''}" data-action="flip"><small>${g.flipped?'NGHĨA TIẾNG VIỆT':safe(x.category)}</small><b>${safe(g.flipped?x.vi:x.en)}</b>${g.flipped?`<strong class="flash-back-english">${safe(x.en)}</strong>`:''}${ipaLine(x)}<span>Chạm để lật ↻ · Mỗi lần lật sẽ đọc tiếng Anh</span></button><div class="game-actions"><button class="btn" data-action="flash-prev" ${g.i===0?'disabled':''}>← Trước</button><button class="btn" data-action="speak" data-id="${x.id}">🔊 Nghe tiếng Anh</button><button class="btn orange" data-action="flash-next">${g.i===g.deck.length-1?'Hoàn thành ✓':'Tiếp theo →'}</button></div>`}
 
 function makeOptions(correct,field){const pool=shuffle(ALL.filter(x=>x.id!==correct.id&&x[field]!==correct[field]));let choices=[correct,...pool.slice(0,3)];return shuffle(choices)}
 function quizMarkup(){const g=state.game,x=g.deck[g.i],vi=g.mode==='viquiz';if(!g.choices)g.choices=makeOptions(x,vi?'en':'vi');const val=vi?'en':'vi';return progress(g.i,g.deck.length)+`<div class="prompt"><div class="prompt-label">${vi?'NGHĨA TIẾNG VIỆT':'CỤM TỪ TIẾNG ANH'}</div><h2>${safe(vi?x.vi:x.en)}</h2>${!vi?ipaLine(x):''}${vi?'<p>Chọn cụm từ tiếng Anh phù hợp nhất.</p>':'<p>Chọn nghĩa tiếng Việt phù hợp nhất.</p>'}</div><div class="answer-grid">${g.choices.map(c=>`<button class="answer ${g.answered?(c.id===x.id?'right':c.id===g.choice?'wrong':''):''}" data-action="quiz-answer" data-id="${c.id}" ${g.answered?'disabled':''}>${safe(c[val])}${vi?ipaLine(c):''}</button>`).join('')}</div><div class="feedback">${g.answered?`<span>${g.choice===x.id?'✅ Chính xác!':'💡 Đáp án đúng:'}</span><strong class="answer-english">${safe(x.en)}</strong>${ipaLine(x)}`:''}</div><div class="game-actions">${vi?`<button class="btn" data-action="say-vi">🔊 Nghe nghĩa tiếng Việt</button>`:`<button class="btn" data-action="speak" data-id="${x.id}">🔊 Phát âm</button>`}${g.answered?`<button class="btn orange" data-action="next-quiz">${g.i===g.deck.length-1?'Xem kết quả →':'Câu tiếp theo →'}</button>`:''}</div>`}
@@ -90,87 +122,76 @@ function setupMatch(){const g=state.game;g.matchChunk=g.deck.slice(g.round*10,g.
 function matchMarkup(){const g=state.game;if(g.round*10>=g.deck.length){g.finished=true;return resultMarkup()}const done=g.matchDone.size;return `<div class="game-top"><span class="step">NHÓM ${g.round+1} / ${Math.ceil(g.deck.length/10)}</span><span class="step">ĐÃ GHÉP ${done} / ${g.matchChunk.length}</span></div><div class="progress-track"><div class="progress-fill" style="width:${(g.round*10+done)/g.deck.length*100}%"></div></div><div class="match-grid"><div class="match-side"><span class="step">TIẾNG ANH</span>${g.matchLeft.map(x=>`<button class="match-item ${g.matchSelected===x.id?'active':''} ${g.matchDone.has(x.id)?'done':''}" data-action="match-left" data-id="${x.id}" ${g.matchDone.has(x.id)?'disabled':''}>${safe(x.en)}${ipaLine(x)}</button>`).join('')}</div><div class="match-side"><span class="step">TIẾNG VIỆT</span>${g.matchRight.map(x=>`<button class="match-item ${g.matchDone.has(x.id)?'done':''}" data-action="match-right" data-id="${x.id}" ${g.matchDone.has(x.id)?'disabled':''}>${safe(x.vi)}</button>`).join('')}</div></div><p class="game-note">${safe(g.matchNotice)}</p>${done===g.matchChunk.length?`<div class="game-actions"><button class="btn orange" data-action="next-match">${(g.round+1)*10>=g.deck.length?'Xem kết quả →':'Nhóm tiếp theo →'}</button></div>`:''}`}
 function speakMarkup(){const g=state.game,x=g.deck[g.i];return progress(g.i,g.deck.length)+`<div class="prompt-label" style="text-align:center;margin-top:22px">NHÌN NGHĨA – NÓI TIẾNG ANH</div><div class="speaking-vi">${safe(x.vi)}</div><div class="game-actions"><button class="btn navy" data-action="speak-record">🎙️ Bắt đầu nói</button><button class="btn" data-action="speak-answer">${g.showAnswer?'🙈 Ẩn đáp án':'👁 Hiện đáp án'}</button><button class="btn" data-action="speak" data-id="${x.id}">🔊 Nghe mẫu</button></div><div class="speech-result" id="speechResult">${g.recognitionResult?safe(g.recognitionResult):'Chạm micro để nhận diện giọng nói (nếu trình duyệt hỗ trợ), hoặc tự nói và bấm Hiện đáp án.'}${g.showAnswer?`<div style="font-weight:900;color:var(--navy);margin-top:13px;font-size:19px">${safe(x.en)}${ipaLine(x)}</div>`:''}</div><div class="game-actions"><button class="btn orange" data-action="next-speak">${g.i===g.deck.length-1?'Hoàn thành →':'Cụm tiếp theo →'}</button></div><p class="game-note">Chế độ này hỗ trợ nhận diện lời nói trên trình duyệt, không phải hệ thống chấm phát âm bằng AI.</p>`}
 function setupFly(){
- const g=state.game;
- g.flyPage=0;
- const small=innerWidth<=520;
- g.flyPageSize=small?8:(innerWidth<=820?11:14);
- g.flyBatch=g.deck.slice(0,g.flyPageSize);
- g.flyDone=new Set();g.flyTarget=g.flyBatch[0]?.id||null;g.flyLocked=false;g.flyMisses=0;
+ const g=state.game;g.flyPage=0;g.flyPageSize=innerWidth<=520?10:(innerWidth<=820?16:20);
+ g.flyBatch=g.deck.slice(0,g.flyPageSize);g.flyDone=new Set();g.flyTarget=g.flyBatch[0]?.id||null;
+ g.flyLocked=false;g.flyMisses=0;
 }
-function flySpeak(){const g=state.game;if(g?.mode!=='fly'||!g.flyTarget||g.flyLocked)return;const x=byID(g.flyTarget);say(g.lang==='vi'?x.vi:x.en,g.lang)}
-function flyMarkup(){const g=state.game,done=g.flyDone.size;return `<div class="fly-prompt"><div><small>NGHE VÀ CHẠM ĐÚNG CỤM TỪ · ${done}/${g.flyBatch.length}</small><b style="display:block;margin-top:4px">${g.lang==='vi'?'🇻🇳 Nghe nghĩa Việt → chọn cụm tiếng Anh':'🇬🇧 Nghe tiếng Anh → chọn cụm từ'}</b></div><button class="btn" data-action="fly-hear">🔊 Nghe lại</button></div><div class="fly-notice" id="flyNotice" role="status" aria-live="polite">Lắng nghe rồi chạm đúng cụm đang bay. Đúng một lần được +10 điểm!</div><div class="fly-board" id="flyBoard">${g.flyBatch.map(w=>g.flyDone.has(w.id)?'':`<button type="button" class="fly-word" data-action="fly-pick" data-id="${w.id}" title="Chạm vào cụm này">${safe(w.en)}</button>`).join('')}</div><div class="fly-controls"><div><label>Giọng đọc <select data-action="fly-lang"><option value="en" ${g.lang==='en'?'selected':''}>Tiếng Anh</option><option value="vi" ${g.lang==='vi'?'selected':''}>Tiếng Việt</option></select></label></div><label>Tốc độ <input type="range" min="1.25" max="3" step=".25" value="${g.speed}" data-action="fly-speed"> <b id="flySpeedLabel">${g.speed}×</b></label><span class="step" id="flyPageLabel">TRANG ${g.flyPage+1}/${Math.ceil(g.deck.length/g.flyPageSize)} · ⭐ ${g.score}</span></div><p class="game-note">Mỗi cụm tự bay đa hướng, liên tục đổi hướng và tốc độ. Một lần chạm đúng là ghi điểm ngay.</p>`}
+function flySpeak(){const g=state.game;if(g?.mode!=='fly'||!g.flyTarget||g.flyLocked)return;const x=byID(g.flyTarget);say(g.lang==='vi'?x.vi:x.en,g.lang);}
+function flyFullScreenMarkup(){
+ const g=state.game;
+ if(g.finished)return `<section class="fly-screen fly-screen-v2"><span class="fly-bubble b1"></span><span class="fly-bubble b2"></span><div class="fly-finish"><div class="fly-score-caption">FINISHED!</div><h2>DỌN SẠCH BẦU TRỜI!</h2><div class="fly-final-number">${g.score}</div><p>Đã ôn ${g.deck.length} cụm từ · ${g.flyMisses} lượt chọn chưa đúng</p><div class="fly-finish-actions"><button data-action="replay-game">↻ Chơi lại</button><button data-action="home">← Danh sách cụm từ</button></div></div></section>`;
+ const size=g.flyBatch.length, done=g.flyDone.size;
+ return `<section class="fly-screen fly-screen-v2" role="application" aria-label="Game Chữ bay giống IELTS Speaking">
+   <span class="fly-bubble b1"></span><span class="fly-bubble b2"></span><span class="fly-bubble b3"></span><span class="fly-bubble b4"></span>
+   <div class="fly-top"><div class="fly-scoreboard"><div class="fly-score-caption">SCORE</div><div class="fly-score-big" id="flyPoints">${g.score}</div></div><div class="fly-head-middle"><div class="fly-listen-label">LISTEN & TAP THE RIGHT WORD</div><button type="button" class="fly-replay" data-action="fly-hear">🔊 Replay</button></div><button class="fly-close" data-action="home" aria-label="Đóng game">×</button></div>
+   <div class="fly-message" id="flyNotice" role="status" aria-live="polite">Nghe rồi chạm đúng cụm đang bay. Chọn đúng được +10 điểm.</div>
+   <div class="fly-sky" id="flySky" aria-label="Các cụm đang bay">${g.flyBatch.map(x=>g.flyDone.has(x.id)?'':`<button type="button" class="fly-target" data-action="fly-pick" data-id="${x.id}" aria-label="Chọn ${safe(x.en)}">${safe(x.en)}</button>`).join('')}</div>
+   <div class="fly-bottom"><span>MÀN ${g.flyPage+1} / ${Math.ceil(g.deck.length/g.flyPageSize)}</span><span id="flyRemain">CÒN ${size-done} CỤM</span><span id="flyProgress">TỔNG ${g.flyPage*g.flyPageSize+done} / ${g.deck.length}</span></div>
+   <div class="fly-lang-control"><select aria-label="Ngôn ngữ đọc" data-action="fly-lang"><option value="en" ${g.lang==='en'?'selected':''}>🔊 English</option><option value="vi" ${g.lang==='vi'?'selected':''}>🔊 Tiếng Việt</option></select><label>Tốc độ <input aria-label="Tốc độ chữ bay" data-action="fly-speed" type="range" min="1" max="3" value="${g.speed}" step="0.25"></label></div>
+ </section>`;
+}
 function placeFlyingWords(){
- stopFlying();
- const g=state.game,board=document.getElementById('flyBoard');if(!board||!g||g.mode!=='fly')return;
- const els=[...board.querySelectorAll('.fly-word')];
- const W=board.clientWidth,H=board.clientHeight;if(W<50||H<50)return;
- const cols=W<500?2:W<850?3:4,rows=Math.ceil(els.length/cols);
- const random=(a,b)=>a+Math.random()*(b-a);
- const slots=shuffle(Array.from({length:els.length},(_,i)=>i));
- for(let i=0;i<els.length;i++){
-  const el=els[i],slot=slots[i],w=el.offsetWidth,h=el.offsetHeight;
-  const col=slot%cols,row=Math.floor(slot/cols),cw=W/cols,ch=H/rows;
-  const x=Math.max(0,Math.min(W-w,col*cw+random(2,Math.max(3,cw-w))));
-  const y=Math.max(0,Math.min(H-h,row*ch+random(2,Math.max(3,ch-h))));
-  const ang=random(0,Math.PI*2),speed=random(23,60);
-  flyActors.push({el,x,y,w,h,vx:Math.cos(ang)*speed,vy:Math.sin(ang)*speed,nextTurn:random(900,2300)});
-  el.style.transform=`translate3d(${x}px,${y}px,0)`;
+ stopFlying();const g=state.game;const sky=document.getElementById('flySky');if(!sky||!g||g.mode!=='fly')return;
+ const buttons=[...sky.querySelectorAll('.fly-target')],W=sky.clientWidth,H=sky.clientHeight;
+ if(W<100||H<80)return;
+ const cols=W<=520?2:(W<=820?3:(W<=1200?4:5)),rows=Math.ceil(buttons.length/cols);
+ const cellW=W/cols,cellH=H/rows,slots=shuffle(Array.from({length:buttons.length},(_,i)=>i));
+ const rand=(a,b)=>a+Math.random()*(b-a);
+ for(let i=0;i<buttons.length;i++){
+  const el=buttons[i],slot=slots[i],c=slot%cols,r=Math.floor(slot/cols),w=el.offsetWidth,h=el.offsetHeight;
+  const roomX=Math.max(0,cellW-w-10),roomY=Math.max(0,cellH-h-8);
+  const ampX=Math.min(W<=520?12:34,roomX/2),ampY=Math.min(W<=520?7:22,roomY/2);
+  const anchorX=c*cellW+(cellW-w)/2,anchorY=r*cellH+(cellH-h)/2;
+  const phaseX=rand(0,Math.PI*2),phaseY=rand(0,Math.PI*2),phaseRot=rand(0,Math.PI*2);
+  const a={el,id:el.dataset.id,active:true,anchorX,anchorY,ampX,ampY,phaseX,phaseY,phaseRot,
+   speedX:rand(.00075,.00155),speedY:rand(.00065,.00135),start:performance.now(),pausedAt:null,pausedTotal:0};
+  flyActors.push(a);
+  el.addEventListener('pointerenter',()=>{if(a.active&&a.pausedAt===null)a.pausedAt=performance.now()});
+  el.addEventListener('pointerleave',()=>{if(a.pausedAt!==null){a.pausedTotal+=performance.now()-a.pausedAt;a.pausedAt=null}});
+  el.style.transform=`translate(${anchorX+Math.sin(phaseX)*ampX}px,${anchorY+Math.cos(phaseY)*ampY}px)`;
  }
- let last=0;
- function tick(now){
-  if(state.game!==g||state.screen!=='game'||g.mode!=='fly'||!board.isConnected)return;
-  const dt=Math.min(.045,(now-(last||now))/1000);last=now;
-  const rate=g.speed;
-  for(let i=0;i<flyActors.length;i++){
-   const a=flyActors[i];if(!a.el.isConnected)continue;
-   a.nextTurn-=dt*1000;
-   if(a.nextTurn<=0){
-    const ang=Math.atan2(a.vy,a.vx)+random(-1.65,1.65),v=random(24,65);
-    a.vx=Math.cos(ang)*v;a.vy=Math.sin(ang)*v;a.nextTurn=random(680,2200);
-   }
-   let nx=a.x+a.vx*dt*rate,ny=a.y+a.vy*dt*rate;
-   if(nx<0||nx>W-a.w){a.vx*=-1;nx=Math.max(0,Math.min(W-a.w,nx))}
-   if(ny<0||ny>H-a.h){a.vy*=-1;ny=Math.max(0,Math.min(H-a.h,ny))}
-   // Distinct moving phrases keep their touch targets readable.
-   for(let j=0;j<flyActors.length;j++){
-    if(i===j)continue;const b=flyActors[j];if(!b.el.isConnected)continue;
-    const overlapX=Math.min(nx+a.w,b.x+b.w)-Math.max(nx,b.x);
-    const overlapY=Math.min(ny+a.h,b.y+b.h)-Math.max(ny,b.y);
-    if(overlapX>3&&overlapY>3){
-      if(overlapX<overlapY){nx+=(nx+a.w/2<b.x+b.w/2?-1:1)*Math.min(overlapX+2,6);a.vx*=-.95}
-      else{ny+=(ny+a.h/2<b.y+b.h/2?-1:1)*Math.min(overlapY+2,5);a.vy*=-.95}
-    }
-   }
-   a.x=Math.max(0,Math.min(W-a.w,nx));a.y=Math.max(0,Math.min(H-a.h,ny));
-   a.el.style.transform=`translate3d(${a.x.toFixed(1)}px,${a.y.toFixed(1)}px,0)`;
-  }
-  flyFrame=requestAnimationFrame(tick);
- }
- flyFrame=requestAnimationFrame(tick);
+ const step=now=>{
+  if(state.game!==g||g.mode!=='fly'||!sky.isConnected||state.screen!=='game')return;
+  for(const a of flyActors){if(!a.active||!a.el.isConnected)continue;
+   const time=Math.max(0,(a.pausedAt===null?now:a.pausedAt)-a.start-a.pausedTotal)*g.speed;
+   const x=a.anchorX+Math.sin(time*a.speedX+a.phaseX)*a.ampX;
+   const y=a.anchorY+Math.cos(time*a.speedY+a.phaseY)*a.ampY;
+   a.el.style.transform=`translate(${x}px,${y}px) rotate(${Math.sin(time*.0009+a.phaseRot)*1.5}deg)`;
+  }flyFrame=requestAnimationFrame(step);
+ };flyFrame=requestAnimationFrame(step);
 }
 function chooseFlying(id,btn){
  const g=state.game;if(!g||g.mode!=='fly'||g.flyLocked||g.flyDone.has(id))return;
  const notice=document.getElementById('flyNotice');
- if(id!==g.flyTarget){g.flyMisses++;effectSound('wrong');if(btn){btn.classList.add('bad');setTimeout(()=>btn.classList.remove('bad'),300)}if(notice)notice.textContent='Thử lại nhé! Bấm Nghe lại nếu cần.';return}
+ if(id!==g.flyTarget){g.flyMisses++;effectSound('wrong');if(btn){btn.classList.add('is-incorrect');setTimeout(()=>btn.classList.remove('is-incorrect'),450)}if(notice)notice.textContent='Chưa đúng rồi. Bấm Replay để nghe lại!';return}
  g.flyLocked=true;g.flyDone.add(id);g.score+=10;effectSound('right');
- const x=byID(id);say(x.en);
- if(btn){btn.classList.add('good');btn.style.pointerEvents='none';setTimeout(()=>{btn.remove()},340)}
- const scoreEl=document.getElementById('gameScore');if(scoreEl)scoreEl.textContent='⭐ '+g.score+' ĐIỂM';
- const page=document.getElementById('flyPageLabel');if(page)page.textContent=`TRANG ${g.flyPage+1}/${Math.ceil(g.deck.length/g.flyPageSize)} · ⭐ ${g.score}`;
- const tip=document.querySelector('.fly-prompt small');if(tip)tip.textContent=`NGHE VÀ CHẠM ĐÚNG CỤM TỪ · ${g.flyDone.size}/${g.flyBatch.length}`;
- if(notice)notice.textContent=`✓ Chính xác! +10 điểm · ${x.en}`;
+ const actor=flyActors.find(a=>a.id===id);if(actor)actor.active=false;
+ if(btn){btn.classList.add('is-correct');btn.style.pointerEvents='none';setTimeout(()=>btn.classList.add('is-vanish'),60)}
+ const score=document.getElementById('flyPoints');if(score)score.textContent=g.score;
+ const rem=document.getElementById('flyRemain');if(rem)rem.textContent=`CÒN ${g.flyBatch.length-g.flyDone.size} CỤM`;
+ const p=document.getElementById('flyProgress');if(p)p.textContent=`TỔNG ${g.flyPage*g.flyPageSize+g.flyDone.size} / ${g.deck.length}`;
+ if(notice)notice.textContent='✓ Chính xác! +10 điểm';
+ // Correct answer is repeated aloud once; the next prompt follows afterwards.
+ say(byID(id).en);
  setTimeout(()=>{
   if(state.game!==g||g.mode!=='fly'||state.screen!=='game')return;
-  const remaining=g.flyBatch.filter(y=>!g.flyDone.has(y.id));
-  if(remaining.length){g.flyTarget=remaining[0].id;g.flyLocked=false;flySpeak()}
-  else{
-   const start=(g.flyPage+1)*g.flyPageSize;
-   if(start>=g.deck.length){finish();return}
-   g.flyPage++;g.flyBatch=g.deck.slice(start,start+g.flyPageSize);
-   g.flyDone=new Set();g.flyTarget=g.flyBatch[0].id;g.flyLocked=false;
-   stage();flySpeak();
-  }
- },940);
+  btn?.remove();g.flyLocked=false;
+  const next=g.flyBatch.find(x=>!g.flyDone.has(x.id));
+  if(next){g.flyTarget=next.id;flySpeak();return}
+  const start=(g.flyPage+1)*g.flyPageSize;
+  if(start>=g.deck.length){finish();return}
+  g.flyPage++;g.flyBatch=g.deck.slice(start,start+g.flyPageSize);g.flyDone=new Set();g.flyTarget=g.flyBatch[0]?.id;renderGame();
+ },610);
 }
 
 function echoMarkup(){const g=state.game,x=g.deck[g.i];return progress(g.i,g.deck.length)+`<div class="echo-main"><div class="echo-icon">🎧</div><span class="prompt-label">LISTEN • REPEAT • REMEMBER</span>${englishLine(x)}<div class="vi">${safe(x.vi)}</div><div class="echo-settings"><label class="setting">Tốc độ đầu <select data-action="echo-setting" data-key="startRate">${[1,1.25,1.5,1.75,2,2.25,2.5,2.75,3].map(v=>`<option value="${v}" ${g.startRate===v?'selected':''}>${v}×</option>`).join('')}</select></label><label class="setting">Tốc độ cuối <select data-action="echo-setting" data-key="endRate">${[1,1.25,1.5,1.75,2,2.25,2.5,2.75,3].map(v=>`<option value="${v}" ${g.endRate===v?'selected':''}>${v}×</option>`).join('')}</select></label><label class="setting">Lặp lại <select data-action="echo-setting" data-key="repeats">${Array.from({length:15},(_,i)=>i+1).map(v=>`<option value="${v}" ${g.repeats===v?'selected':''}>${v} lần</option>`).join('')}</select></label><label class="setting">Khoảng nghỉ <select data-action="echo-setting" data-key="gapMs">${[0,250,400,650,1000].map(v=>`<option value="${v}" ${g.gapMs===v?'selected':''}>${v/1000}s</option>`).join('')}</select></label><label class="setting">Tự chuyển <input type="checkbox" data-action="echo-auto" ${g.autoPlay?'checked':''}></label></div><div class="game-actions"><button class="btn navy" data-action="echo-play">▶ Nghe & nhắc lại</button><button class="btn" data-action="echo-stop">■ Dừng</button><button class="btn orange" data-action="echo-next">${g.i===g.deck.length-1?'Hoàn thành →':'Cụm tiếp theo →'}</button></div><div class="echo-status" id="echoStatus">Nghe cụm tiếng Anh từ nhanh đến chậm, sau đó nghe nghĩa tiếng Việt.</div></div>`}
@@ -185,6 +206,8 @@ if(a==='q'){state.q=+btn.dataset.index;state.onlySelected=false;state.search='';
 if(a==='row-select'){if(e.target.closest('label,input,button,a'))return;const box=btn.querySelector('input[data-action=toggle]');if(box){box.checked=!box.checked;box.dispatchEvent(new Event('change',{bubbles:true}))}return}
 if(a==='speak'){const x=byID(id);if(x)say(x.en);return}
 if(a==='say-vi'){say(g.deck[g.i].vi,'vi');return}
+if(a==='learn-only'){toast('Hãy chọn cụm từ rồi chọn trò chơi ở phía trên nhé.');return}
+if(a==='kind'){state.kind=btn.dataset.kind;document.querySelectorAll('.category-filter').forEach(b=>b.classList.toggle('active',b.dataset.kind===state.kind));refreshRows();return}
 if(a==='select-visible'){filtered().forEach(x=>state.selected.add(x.id));persist();refreshRows();return}
 if(a==='clear-visible'){filtered().forEach(x=>state.selected.delete(x.id));persist();refreshRows();return}
 if(a==='clear-all'){state.selected.clear();persist();refreshRows();return}
@@ -222,8 +245,8 @@ if(a==='echo-stop'){cancelSound();const el=document.getElementById('echoStatus')
 if(a==='echo-next'){g.score+=10;next('echo');return}
 }
 function onChange(e){const t=e.target;let a=t.dataset.action;
-if(a==='toggle'){if(t.checked)state.selected.add(t.dataset.id);else state.selected.delete(t.dataset.id);persist();const row=t.closest('.wordrow');row?.classList.toggle('selected',t.checked);if(state.onlySelected)refreshRows();const s=document.getElementById('selCount');if(s)s.textContent=state.selected.size+' cụm từ đã chọn';return}
-if(a==='only-selected'){state.onlySelected=t.checked;refreshRows();const h=document.querySelector('.sectionlabel strong');if(h)h.textContent=state.onlySelected?'⭐ CỤM TỪ ĐÃ CHỌN':`QUESTION ${currentSection().question} – ${currentSection().title}`;return}
+if(a==='toggle'){if(t.checked)state.selected.add(t.dataset.id);else state.selected.delete(t.dataset.id);persist();const row=t.closest('.wordrow');row?.classList.toggle('selected',t.checked);if(state.onlySelected)refreshRows();const s=document.getElementById('selCount');if(s)s.textContent=state.selected.size+' cụm đã chọn';return}
+if(a==='only-selected'){state.onlySelected=t.checked;refreshRows();const heading=document.querySelector('.kb-cards-heading h3');if(heading)heading.textContent=state.onlySelected?'CÁC CỤM TỪ ĐÃ CHỌN':`QUESTION ${currentSection().question} – ${currentSection().title}`;return}
 if(a==='test-select'){state.test=+t.value;state.q=0;state.onlySelected=false;state.search='';render();return}
 if(state.screen!=='game')return;const g=state.game;
 if(a==='fly-lang'){g.lang=t.value;flySpeak();return}

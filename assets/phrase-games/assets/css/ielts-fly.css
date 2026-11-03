@@ -1,0 +1,104 @@
+/* Flying-words game presentation copied from IELTS Speaking source. */
+.fly-screen{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;z-index:8000;overflow:hidden;background:radial-gradient(circle at 32% 20%,#5076c9 0%,#395caa 28%,#273e7c 62%,#1a2a55 100%);color:#fff;font-family:'Nunito Sans','Be Vietnam Pro',sans-serif;user-select:none}
+.fly-screen *, .fly-screen *::before, .fly-screen *::after{box-sizing:border-box}
+.fly-screen button{touch-action:manipulation}
+.fly-screen .fly-top{position:absolute;top:0;left:0;right:0;z-index:3;height:134px;pointer-events:none}
+.fly-screen .fly-scoreboard{position:absolute;left:clamp(18px,3.4vw,56px);top:clamp(13px,2vh,22px);min-width:120px}
+.fly-screen .fly-score-caption{font-size:clamp(15px,1.4vw,22px);letter-spacing:2px;font-weight:900;color:#e8efff}
+.fly-screen .fly-score-big{font-size:clamp(51px,5.2vw,79px);font-weight:1000;color:#ffcb46;line-height:1.08;font-variant-numeric:tabular-nums}
+.fly-screen .fly-head-middle{position:absolute;top:16px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;white-space:nowrap}
+.fly-screen .fly-listen-label{font-weight:1000;letter-spacing:1.7px;font-size:clamp(15px,1.45vw,23px);text-align:center;color:#fff}
+.fly-screen .fly-replay{background:#fff;color:#182750;border:0;border-radius:999px;min-height:55px;padding:11px 27px;font-size:clamp(17px,1.5vw,22px);font-weight:1000;box-shadow:0 8px 26px rgba(9,22,55,.12);pointer-events:auto}
+.fly-screen .fly-replay:hover,.fly-screen .fly-replay:focus-visible{background:#fff3e8;outline:3px solid #ffca46}
+.fly-screen .fly-close{position:absolute;right:clamp(18px,4.5vw,78px);top:25px;width:60px;height:60px;display:grid;place-items:center;border:0;border-radius:50%;color:#fff;background:rgba(255,255,255,.16);font-size:31px;line-height:1;pointer-events:auto}
+.fly-screen .fly-close:hover,.fly-screen .fly-close:focus-visible{background:rgba(255,255,255,.28);outline:2px solid rgba(255,255,255,.7)}
+.fly-screen .fly-sky{position:absolute;left:0;right:0;top:136px;bottom:30px;overflow:hidden;isolation:isolate}
+.fly-screen .fly-target{position:absolute;left:0;top:0;z-index:1;display:flex;align-items:center;justify-content:center;min-height:57px;max-width:min(31vw,290px);width:max-content;min-width:76px;padding:11px clamp(13px,1.5vw,25px);border-radius:23px;background:#fff;border:1px solid #e9ebf4;color:#152449;box-shadow:0 8px 20px rgba(7,18,50,.13);font-size:clamp(15px,1.25vw,21px);font-weight:1000;text-align:center;line-height:1.35;white-space:normal;overflow-wrap:anywhere;animation:flySway var(--fly-speed,5s) ease-in-out infinite alternate;animation-delay:var(--fly-start,0s);transition:background-color .16s,border-color .16s,color .16s;will-change:transform}
+@keyframes flySway{0%{transform:translate(-6px,-6px) rotate(-1deg)}50%{transform:translate(6px,4px) rotate(1deg)}100%{transform:translate(-2px,8px) rotate(-.5deg)}}
+.fly-screen .fly-target:focus-visible{outline:4px solid #ffd05b}
+.fly-screen .fly-target:hover:not(:disabled){border-color:#ffcf68;box-shadow:0 14px 28px rgba(5,17,45,.2)}
+.fly-screen .fly-target.is-correct{background:#c9f9dc;color:#076034;border-color:#8ee4ac;animation:none;transform:scale(1.05)}
+.fly-screen .fly-target.is-incorrect{background:#ffe1df;color:#ad2727;border-color:#f5a6a0;animation:flyWiggle .25s ease-in-out 2}
+@keyframes flyWiggle{0%,100%{transform:translateX(0)}25%{transform:translateX(6px)}75%{transform:translateX(-6px)}}
+.fly-screen .fly-target:disabled{opacity:1;cursor:default}
+.fly-screen .fly-bottom{position:absolute;bottom:9px;left:50%;transform:translateX(-50%);display:flex;align-items:center;justify-content:center;gap:14px;color:#d4defa;letter-spacing:.3px;font-size:13px;font-weight:900;z-index:2;white-space:nowrap}
+.fly-screen .fly-message{position:absolute;top:114px;left:50%;transform:translateX(-50%);color:#fff;background:rgba(10,28,67,.65);border:1px solid rgba(255,255,255,.14);font-weight:850;border-radius:999px;padding:6px 16px;font-size:14px;z-index:4;text-align:center;max-width:75vw;white-space:normal;pointer-events:none}
+.fly-screen .fly-message:empty{display:none}
+.fly-screen .fly-finish{position:absolute;inset:0;z-index:9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:24px;background:radial-gradient(circle at 30% 20%,#5076c9,#1a2a55)}
+.fly-screen .fly-finish h2{font-size:clamp(30px,5vw,56px);margin:0;color:#fff}
+.fly-screen .fly-final-number{font-size:clamp(70px,11vw,150px);font-weight:1000;line-height:1;color:#ffca46}
+.fly-screen .fly-finish p{font-size:clamp(17px,2vw,24px);font-weight:800;margin:0;color:#e2eaff}
+.fly-screen .fly-finish-actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.fly-screen .fly-finish-actions button{padding:14px 24px;border-radius:16px;font-size:17px;font-weight:900;border:0;background:#fff;color:#14224d}
+.fly-screen .fly-finish-actions button:first-child{background:#ffca46}
+@media(max-width:720px){
+ .fly-screen .fly-top{height:138px}
+ .fly-screen .fly-scoreboard{left:14px;top:14px;min-width:68px}
+ .fly-screen .fly-score-caption{font-size:11px;letter-spacing:1px}
+ .fly-screen .fly-score-big{font-size:47px}
+ .fly-screen .fly-head-middle{top:16px;left:51%;gap:10px}
+ .fly-screen .fly-listen-label{font-size:12px;letter-spacing:.6px}
+ .fly-screen .fly-replay{font-size:15px;padding:10px 17px;min-height:44px}
+ .fly-screen .fly-close{right:11px;top:17px;width:41px;height:41px;font-size:25px}
+ .fly-screen .fly-sky{top:147px;bottom:34px}
+ .fly-screen .fly-target{max-width:min(48vw,230px);min-width:66px;min-height:47px;padding:9px 11px;border-radius:16px;font-size:clamp(12px,3.3vw,16px)}
+ .fly-screen .fly-message{top:111px;font-size:12px;max-width:92vw;padding:6px 10px}
+ .fly-screen .fly-bottom{font-size:11px}
+}
+@media(max-height:530px){.fly-screen .fly-sky{top:108px;bottom:22px}.fly-screen .fly-message{display:none}.fly-screen .fly-head-middle{top:8px}.fly-screen .fly-close{top:12px}.fly-screen .fly-scoreboard{top:8px}}
+@media(prefers-reduced-motion:reduce){.fly-screen .fly-target{animation:none!important}}
+
+
+/* ===== V12: KB 5 tabs + one-screen flying words ===== */
+.kb-top-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media(max-width:1050px){.kb-top-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:720px){.kb-top-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.fly-screen.fly-screen-v2{
+  background:
+    radial-gradient(circle at 18% 18%, rgba(116,170,255,.42), transparent 24%),
+    radial-gradient(circle at 82% 16%, rgba(255,196,89,.18), transparent 18%),
+    radial-gradient(circle at 52% 78%, rgba(120,212,255,.15), transparent 20%),
+    linear-gradient(180deg,#3356a8 0%, #223d88 34%, #1b2f6e 68%, #15295f 100%);
+}
+.fly-screen.fly-screen-v2::before,
+.fly-screen.fly-screen-v2::after{
+  content:"";position:absolute;border-radius:50%;pointer-events:none;filter:blur(2px);opacity:.85;
+}
+.fly-screen.fly-screen-v2::before{width:360px;height:360px;left:-120px;bottom:-130px;background:radial-gradient(circle,rgba(255,255,255,.22),rgba(255,255,255,0) 70%)}
+.fly-screen.fly-screen-v2::after{width:320px;height:320px;right:-90px;top:-80px;background:radial-gradient(circle,rgba(255,207,94,.30),rgba(255,207,94,0) 70%)}
+.fly-bubble{position:absolute;border-radius:50%;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none;animation:flyBubble 12s linear infinite}
+.fly-bubble.b1{width:18px;height:18px;left:8%;top:38%;animation-duration:13s}
+.fly-bubble.b2{width:26px;height:26px;left:73%;top:74%;animation-duration:15s;animation-delay:-3s}
+.fly-bubble.b3{width:12px;height:12px;left:61%;top:22%;animation-duration:11s;animation-delay:-5s}
+.fly-bubble.b4{width:22px;height:22px;left:31%;top:82%;animation-duration:14s;animation-delay:-7s}
+@keyframes flyBubble{0%{transform:translateY(0)}50%{transform:translateY(-18px)}100%{transform:translateY(0)}}
+.fly-screen.fly-screen-v2 .fly-top{height:150px}
+.fly-screen.fly-screen-v2 .fly-head-middle{gap:10px}
+.fly-screen.fly-screen-v2 .fly-listen-label{display:flex;align-items:center;gap:10px;text-shadow:0 1px 2px rgba(0,0,0,.1)}
+.fly-screen.fly-screen-v2 .fly-listen-label::before{content:"🎯";font-size:1.05em}
+.fly-screen.fly-screen-v2 .fly-replay{box-shadow:0 14px 30px rgba(7,19,48,.18)}
+.fly-screen.fly-screen-v2 .fly-sky{top:150px;bottom:64px}
+.fly-screen.fly-screen-v2 .fly-target{
+  left:0;top:0;animation:none;min-height:56px;border-radius:20px;touch-action:manipulation;cursor:pointer;
+  background:linear-gradient(180deg,#ffffff 0%, #f9fbff 100%);
+  box-shadow:0 10px 24px rgba(8,16,42,.18), inset 0 -2px 0 rgba(13,27,66,.05);
+  transition:background-color .18s,border-color .18s,color .18s,opacity .42s ease;
+}
+.fly-screen.fly-screen-v2 .fly-target:hover:not(:disabled){filter:brightness(1.055);border-color:#ffd36d;box-shadow:0 12px 28px rgba(8,16,42,.23)}
+.fly-screen.fly-screen-v2 .fly-target.is-correct{background:linear-gradient(180deg,#dffbe8 0%, #c9f3d8 100%);color:#0a6a38;border-color:#90dcaa}
+.fly-screen.fly-screen-v2 .fly-target.is-incorrect{animation:none!important;background:#ffe5e1;border-color:#ff8c87;box-shadow:0 0 0 3px rgba(255,130,115,.18),0 9px 24px rgba(8,16,42,.17)}
+.fly-screen.fly-screen-v2 .fly-target.is-vanish{opacity:0;pointer-events:none}
+.fly-screen.fly-screen-v2 .fly-message{top:118px;background:rgba(7,17,44,.42);backdrop-filter:blur(10px);font-size:13px;font-weight:900}
+.fly-screen.fly-screen-v2 .fly-bottom{bottom:12px;padding:10px 16px;border-radius:999px;background:rgba(8,19,49,.28);border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(8px);gap:18px}
+.fly-remaining{display:inline-flex;align-items:center;gap:7px}
+.fly-remaining::before{content:"✨"}
+@media(max-width:720px){
+  .fly-screen.fly-screen-v2 .fly-top{height:142px}
+  .fly-screen.fly-screen-v2 .fly-sky{top:169px;bottom:72px}
+  .fly-screen.fly-screen-v2 .fly-bottom{gap:10px;padding:9px 12px;font-size:11px;max-width:92vw;white-space:normal}
+}
+
+
+/* ===== Word Echo · Nghe lặp tiếng Anh nhanh → chậm, nghĩa Việt cuối ===== */
+
