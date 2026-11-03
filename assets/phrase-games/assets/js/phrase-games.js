@@ -6,6 +6,10 @@ const groupLabel=t=>t?.kind==='topic'?'TOPIC':'TEST';
 const ALL=TESTS.flatMap(t=>t.sections.flatMap(q=>q.items));
 const BYID=new Map(ALL.map(x=>[x.id,x]));
 const META=window.PHRASE_META||{};
+const QUESTION_TEXT=window.PHRASE_QUESTION_TEXT||{};
+const questionKey=(test,section)=>'t'+test.test+'q'+section.question;
+const questionPrompt=(test,section)=>QUESTION_TEXT[questionKey(test,section)]||null;
+const practiceTiming=question=>question===11?{prep:45,answer:60}:question===7||question===6?{prep:3,answer:30}:{prep:3,answer:15};
 for(const item of ALL){const m=META[item.id]||{};item.category=m.category||'Word combination';item.example=m.example||'';}
 
 const app=document.getElementById('app'),toastbox=document.getElementById('toast');
@@ -17,6 +21,7 @@ const byID=id=>BYID.get(id);
 const state={test:0,q:0,selected:new Set(),onlySelected:false,search:'',kind:'all',screen:'list',game:null};
 try{const saved=JSON.parse(localStorage.getItem('toeic_phrase_game_selection_v1')||'[]');if(Array.isArray(saved))saved.forEach(id=>{if(BYID.has(id))state.selected.add(id)})}catch(e){}
 let toastTimer=null,ttsSeq=0,recognition=null,flyFrame=0,flyActors=[];
+let practiceTimer=null,practiceData=null,practiceRecorder=null,practiceStream=null,practiceChunks=[],practiceAudioUrl=null;
 let audioContext=null;
 function effectSound(kind='tap'){
   try{
@@ -45,12 +50,54 @@ const getVoices=(lang)=>{const v=speechSynthesis.getVoices();return v.find(x=>x.
 function cancelSound(){ttsSeq++;if('speechSynthesis' in window)speechSynthesis.cancel();if(recognition){try{recognition.abort()}catch(e){}recognition=null}}
 function say(text,lang='en',rate=1){if(!('speechSynthesis' in window)){toast('Trình duyệt chưa hỗ trợ đọc văn bản.');return}cancelSound();const u=new SpeechSynthesisUtterance(text);u.lang=lang==='vi'?'vi-VN':'en-GB';u.rate=rate;const v=getVoices(lang);if(v)u.voice=v;speechSynthesis.speak(u)}
 function saySequence(seq,status){if(!('speechSynthesis' in window)){toast('Trình duyệt không hỗ trợ đọc văn bản.');return}cancelSound();const token=ttsSeq;let i=0;function next(){if(token!==ttsSeq)return;if(i>=seq.length){if(status)status('Hoàn thành lượt nghe.');return}const item=seq[i++];if(status)status(item.note||'Đang phát âm...');const u=new SpeechSynthesisUtterance(item.text);u.lang=item.lang==='vi'?'vi-VN':'en-GB';u.rate=item.rate||1;const v=getVoices(item.lang);if(v)u.voice=v;u.onend=()=>{if(token===ttsSeq)setTimeout(next,window.__phraseEchoGapMs??230)};u.onerror=()=>{if(token===ttsSeq)setTimeout(next,window.__phraseEchoGapMs??230)};speechSynthesis.speak(u)}next()}
+function stopPracticeTimer(){if(practiceTimer){clearInterval(practiceTimer);practiceTimer=null;}}
+function stopPracticeMedia(){if(practiceRecorder&&practiceRecorder.state!=='inactive'){try{practiceRecorder.stop()}catch(e){}}if(practiceStream){practiceStream.getTracks().forEach(t=>t.stop());practiceStream=null;}}
+function resetPractice(opts={}){stopPracticeTimer();stopPracticeMedia();if(!opts.keepAudio&&practiceAudioUrl){URL.revokeObjectURL(practiceAudioUrl);practiceAudioUrl=null;}practiceData=null;}
+function practiceQuestionBlock(t,q){
+  const full=questionPrompt(t,q);
+  const timing=practiceTiming(q.question);
+  return `<section id="questionPreview" class="practice-question practice-question-prominent" aria-label="Câu hỏi luyện nói Question ${q.question}">
+    <div class="practice-question-copy">
+      <div class="practice-eyebrow">📝 ${groupLabel(t)} ${String(t.test).padStart(2,'0')} · QUESTION ${q.question} — CÂU HỎI LUYỆN NÓI</div>
+      <div class="practice-question-text" lang="en">${safe(full||q.title)}</div>
+      <div class="practice-question-hint">${full?'Đọc câu hỏi, học các cụm từ gợi ý bên dưới, rồi luyện nói khi sẵn sàng.':'Đây là chủ điểm luyện nói; chưa có câu hỏi nguyên văn trong nguồn.'}</div>
+      <div class="practice-question-time">⏱ Chuẩn bị ${timing.prep}s · Trả lời ${timing.answer}s</div>
+    </div>
+    <div class="practice-question-buttons">${full?'<button type="button" class="practice-secondary" data-action="read-question">🔊 Nghe câu hỏi</button>':''}<button type="button" class="practice-start" data-action="start-practice">⏱ Bắt đầu luyện nói</button></div>
+  </section>`;
+}
+function mmss(sec){const n=Math.max(0,Math.ceil(sec));return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');}
+function practiceMarkup(){
+ const t=TESTS[state.test],q=currentSection(),p=practiceData,full=questionPrompt(t,q),selectedForQuestion=q.items.filter(x=>state.selected.has(x.id));
+ const picks=selectedForQuestion.length?selectedForQuestion:q.items;
+ const options=picks.slice(0,12).map(x=>`<div class="practice-phrase"><strong>${safe(x.en)}</strong><small>${safe(x.vi)}</small></div>`).join('');
+ const stage=p.stage==='ready'?'SẴN SÀNG':p.stage==='prep'?'THỜI GIAN CHUẨN BỊ':p.stage==='answer'?'ĐANG TRẢ LỜI':'HOÀN THÀNH';
+ const display=p.stage==='ready'?p.prep:p.remaining;
+ return baseTop()+`<div class="container timed-practice-page"><div class="practice-back"><button class="btn" data-action="return-practice">← Quay lại học cụm từ</button></div><div class="timed-practice-card"><div class="practice-topline">⏱ TOEIC SPEAKING · LUYỆN NÓI CÓ ĐẾM GIỜ</div><div class="practice-current">${groupLabel(t)} ${String(t.test).padStart(2,'0')} · QUESTION ${q.question}</div><h2>${safe(full||q.title)}</h2>${full?'':`<div class="practice-source-note">Chưa có nguyên văn câu hỏi trong tài liệu TOPIC 11–34. Đây là tên chủ điểm, không phải câu hỏi gốc.</div>`}<div class="practice-clock-panel"><div class="clock-stage" id="clockStage">${stage}</div><div class="practice-clock" id="practiceClock" aria-live="off">${mmss(display)}</div><div class="practice-progress"><span id="practiceProgress" style="width:${p.stage==='done'?100:0}%"></span></div><div class="practice-presets">Chuẩn bị <b>${p.prep}s</b> · Trả lời <b>${p.answer}s</b> · Có thể điều chỉnh trước khi bắt đầu</div></div><div class="practice-settings"><label>Chuẩn bị (giây)<input type="number" min="0" max="180" step="1" data-action="practice-prep" value="${p.prep}" ${p.stage!=='ready'?'disabled':''}></label><label>Trả lời (giây)<input type="number" min="5" max="300" step="5" data-action="practice-answer" value="${p.answer}" ${p.stage!=='ready'?'disabled':''}></label></div><div class="practice-controls">${p.stage==='ready'?'<button class="btn orange" data-action="practice-go">▶ Bắt đầu tính giờ</button>':p.stage==='done'?'<button class="btn orange" data-action="practice-reset">↻ Luyện lại</button>':`<button class="btn orange" data-action="practice-pause">${p.paused?'▶ Tiếp tục':'⏸ Tạm dừng'}</button>`}<button class="btn" data-action="practice-reset">↻ Đặt lại</button>${full?'<button class="btn" data-action="read-question">🔊 Nghe câu hỏi</button>':''}<button class="btn" data-action="practice-next">Câu tiếp →</button></div><div class="practice-recording"><button class="btn" data-action="practice-record" id="recordBtn">🎙 Ghi âm (tùy chọn)</button><span id="recordStatus">Chỉ có thể ghi âm khi trình duyệt cho phép micro.</span><audio id="practiceAudio" controls hidden></audio></div></div><div class="practice-helpers"><h3>Gợi ý cụm từ cho Question ${q.question}</h3><p>${selectedForQuestion.length?'Những cụm bạn đã chọn trong Question này':'Các cụm từ gợi ý; có thể chọn trước ở màn hình danh sách'}</p><div class="practice-phrase-grid">${options}</div></div></div>`;
+}
+function renderPractice(){app.innerHTML=practiceMarkup();}
+function practiceTick(){
+ const p=practiceData;if(!p||p.paused||p.stage==='ready'||p.stage==='done')return;
+ const now=Date.now();p.remaining=Math.max(0,Math.ceil((p.until-now)/1000));
+ const d=document.getElementById('practiceClock'),label=document.getElementById('clockStage'),progress=document.getElementById('practiceProgress');
+ if(d)d.textContent=mmss(p.remaining);if(progress)progress.style.width=(100*(1-p.remaining/Math.max(1,p.stage==='prep'?p.prep:p.answer)))+'%';
+ if(p.remaining===0){effectSound('right');if(p.stage==='prep'){p.stage='answer';p.remaining=p.answer;p.until=Date.now()+p.answer*1000;renderPractice();}else{p.stage='done';stopPracticeTimer();stopPracticeMedia();renderPractice();}}
+ else if(label)label.textContent=p.stage==='prep'?'THỜI GIAN CHUẨN BỊ':'ĐANG TRẢ LỜI';
+}
+function practiceGo(){const p=practiceData;if(!p)return;p.stage=p.prep>0?'prep':'answer';p.paused=false;p.remaining=p.prep>0?p.prep:p.answer;p.until=Date.now()+p.remaining*1000;stopPracticeTimer();practiceTimer=setInterval(practiceTick,180);renderPractice();}
+function openPractice(){cancelSound();stopFlying();resetPractice();const q=currentSection(),t=practiceTiming(q.question);practiceData={stage:'ready',prep:t.prep,answer:t.answer,remaining:t.prep,paused:false,until:null};state.screen='timed';renderPractice();scrollTo(0,0);}
+async function togglePracticeRecording(){
+ const btn=document.getElementById('recordBtn'),status=document.getElementById('recordStatus'),player=document.getElementById('practiceAudio');
+ if(practiceRecorder&&practiceRecorder.state==='recording'){practiceRecorder.stop();if(btn)btn.textContent='🎙 Ghi âm lại';if(status)status.textContent='Đã dừng ghi âm.';return}
+ if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){if(status)status.textContent='Thiết bị hoặc trình duyệt không hỗ trợ ghi âm.';return}
+ try{stopPracticeMedia();practiceStream=await navigator.mediaDevices.getUserMedia({audio:true});practiceChunks=[];const recorder=new MediaRecorder(practiceStream);practiceRecorder=recorder;recorder.ondataavailable=e=>{if(e.data?.size)practiceChunks.push(e.data)};recorder.onstop=()=>{if(practiceChunks.length){if(practiceAudioUrl)URL.revokeObjectURL(practiceAudioUrl);practiceAudioUrl=URL.createObjectURL(new Blob(practiceChunks,{type:recorder.mimeType||'audio/webm'}));const a=document.getElementById('practiceAudio');if(a){a.src=practiceAudioUrl;a.hidden=false}}if(practiceStream){practiceStream.getTracks().forEach(t=>t.stop());practiceStream=null}const st=document.getElementById('recordStatus');if(st)st.textContent='Bấm Play để nghe lại bài nói.'};recorder.start();if(btn)btn.textContent='⏹ Dừng ghi âm';if(status)status.textContent='Đang ghi âm trên thiết bị...';}catch(e){if(status)status.textContent='Không bật được micro. Hãy cấp quyền trên trình duyệt.'}
+}
 function currentSection(){return TESTS[state.test].sections[state.q]}
 function selectedItems(){return ALL.filter(x=>state.selected.has(x.id))}
 function filtered(){let items=state.onlySelected?selectedItems():currentSection().items;const query=normalize(state.search);if(query)items=items.filter(x=>normalize(x.en).includes(query)||normalize(x.vi).includes(query)||normalize(x.example).includes(query));if(state.kind!=='all')items=items.filter(x=>x.category===state.kind);return items}
 function baseTop(){const onList=state.screen==='list';return `<header class="topbar"><div class="logo"><span class="logo-icon">✦</span><div>TOEIC SPEAKING<small>PHRASE PRACTICE</small></div></div><div class="top-right"><button type="button" class="top-back" data-action="${onList?'return-hub':'home'}">${onList?'← TRANG CHÍNH':'← DANH SÁCH CỤM TỪ'}</button></div></header>`}
 function overview(){return ''}
-function render(){if(state.screen==='list'){renderList();requestAnimationFrame(()=>{const nav=document.querySelector('.sidebar'),btn=nav?.querySelector('.testbtn.active');if(nav&&btn)nav.scrollTop=Math.max(0,btn.offsetTop-nav.offsetTop-115)});return}if(state.screen==='menu')return renderMenu();return renderGame()}
+function render(){if(state.screen==='list'){renderList();requestAnimationFrame(()=>{const nav=document.querySelector('.sidebar'),btn=nav?.querySelector('.testbtn.active');if(nav&&btn)nav.scrollTop=Math.max(0,btn.offsetTop-nav.offsetTop-115)});return}if(state.screen==='menu')return renderMenu();if(state.screen==='timed')return renderPractice();return renderGame()}
 function renderList(){
  const t=TESTS[state.test],q=currentSection(),list=filtered(),group=groupLabel(t);
  const options=TESTS.map((item,i)=>`<option value="${i}" ${i===state.test?'selected':''}>${groupLabel(item)} ${String(item.test).padStart(2,'0')} · ${safe(item.title)}</option>`).join('');
@@ -66,6 +113,7 @@ function renderList(){
     </div>
     <div class="topic-identity"><div class="identity-main"><span class="topic-eyebrow">${group} ${String(t.test).padStart(2,'0')}</span><h2>${safe(t.title)}</h2></div><div class="selected-inline"><strong id="selCount">${state.selected.size} cụm đã chọn</strong><button class="mini-clear" data-action="clear-all">Bỏ chọn tất cả</button></div></div>
     <div class="question-tabs" role="group" aria-label="Chọn câu hỏi">${t.sections.map((s,i)=>`<button class="qtab ${state.q===i&&!state.onlySelected?'active':''}" data-action="q" data-index="${i}">QUESTION ${s.question}</button>`).join('')}</div>
+    ${practiceQuestionBlock(t,q)}
     <div class="kb-game-tabs"><button class="kb-learn-tab active" type="button" data-action="learn-only">📚 Học cụm từ</button>${tabs.map(([mode,label])=>`<button type="button" data-action="start-game" data-mode="${mode}">${label}</button>`).join('')}</div>
     <div class="kb-cards-heading"><div><h3>${state.onlySelected?'CÁC CỤM TỪ ĐÃ CHỌN':`QUESTION ${q.question} – ${safe(q.title)}`}</h3><p>Chạm cả thẻ để chọn học · nút 🔊 để nghe phát âm Anh Anh.</p></div><span class="section-count">${list.length} cụm từ</span></div>
     <div class="category-bar"><span>PHÂN LOẠI:</span>${CATS.map(c=>`<button data-action="kind" data-kind="${c}" class="category-filter ${state.kind===c?'active':''}">${c==='all'?'Tất cả':c}</button>`).join('')}</div>
@@ -198,8 +246,16 @@ function echoMarkup(){const g=state.game,x=g.deck[g.i];return progress(g.i,g.dec
 function next(mode){const g=state.game;cancelSound();g.i++;g.answered=false;g.choice=null;g.showAnswer=false;g.recognitionResult='';g.choices=null;g.flipped=false;if(g.i>=g.deck.length)finish();else{if(mode==='fill')g.fillQuestion=makeFillQ(g.deck[g.i]);stage();if(mode==='flash')say(g.deck[g.i].en)}}
 function handleSpeech(){const g=state.game,x=g.deck[g.i],C=window.SpeechRecognition||window.webkitSpeechRecognition;if(!C){g.recognitionResult='Trình duyệt này chưa hỗ trợ nhận diện giọng nói. Bạn có thể tự nói rồi bấm Hiện đáp án.';stage();return}cancelSound();const r=new C();recognition=r;r.lang='en-GB';r.interimResults=false;r.maxAlternatives=1;g.recognitionResult='🎙️ Đang nghe...';stage();r.onresult=e=>{const heard=e.results[0][0].transcript||'';const a=normalize(heard),b=normalize(x.en);const same=a===b||a.replace(/'/g,'')===b.replace(/'/g,'');g.recognitionResult=`Bạn vừa nói: “${heard}”. ${same?'✅ Trùng khớp với cụm từ.':'📖 Cụm đề xuất: '+x.en}`;g.showAnswer=true;stage();effectSound(same?'right':'wrong');say(x.en);recognition=null};r.onerror=e=>{g.recognitionResult='Không nhận diện được giọng nói ('+e.error+'). Bạn có thể tự luyện và xem đáp án.';stage();recognition=null};try{r.start()}catch(e){g.recognitionResult='Không thể bật micro. Hãy kiểm tra quyền micro.';stage();recognition=null}}
 function onClick(e){const btn=e.target.closest('[data-action]');if(!btn)return;const a=btn.dataset.action;const id=btn.dataset.id;const g=state.game;
-if(a==='return-hub'){stopFlying();cancelSound();if(window.parent!==window){window.parent.postMessage({type:'HENRY_TOEIC_RETURN_HOME'},'*')}else{state.screen='list';state.onlySelected=false;state.search='';render()}return}
-if(a==='home'){stopFlying();cancelSound();state.screen='list';state.onlySelected=false;state.search='';render();return}
+if(a==='return-hub'){resetPractice();stopFlying();cancelSound();if(window.parent!==window){window.parent.postMessage({type:'HENRY_TOEIC_RETURN_HOME'},'*')}else{state.screen='list';state.onlySelected=false;state.search='';render()}return}
+if(a==='home'){resetPractice();stopFlying();cancelSound();state.screen='list';state.onlySelected=false;state.search='';render();return}
+if(a==='start-practice'){openPractice();return}
+if(a==='read-question'){const t=TESTS[state.test],q=currentSection(),str=questionPrompt(t,q);if(str)say(str);return}
+if(a==='return-practice'){resetPractice();state.screen='list';render();return}
+if(a==='practice-go'){practiceGo();return}
+if(a==='practice-pause'){if(!practiceData)return;if(practiceData.paused){practiceData.paused=false;practiceData.until=Date.now()+practiceData.remaining*1000;}else{practiceData.paused=true;practiceData.remaining=Math.max(0,Math.ceil((practiceData.until-Date.now())/1000));}renderPractice();return}
+if(a==='practice-reset'){openPractice();return}
+if(a==='practice-next'){if(state.q<TESTS[state.test].sections.length-1)state.q++;else if(state.test<TESTS.length-1){state.test++;state.q=0}else{state.test=0;state.q=0}openPractice();return}
+if(a==='practice-record'){togglePracticeRecording();return}
 if(a==='topic-prev'||a==='topic-next'){state.test=Math.min(TESTS.length-1,Math.max(0,state.test+(a==='topic-next'?1:-1)));state.q=0;state.search='';state.onlySelected=false;render();return}
 if(a==='test'){state.test=+btn.dataset.index;state.q=0;state.search='';state.onlySelected=false;render();return}
 if(a==='q'){state.q=+btn.dataset.index;state.onlySelected=false;state.search='';render();return}
@@ -248,7 +304,7 @@ function onChange(e){const t=e.target;let a=t.dataset.action;
 if(a==='toggle'){if(t.checked)state.selected.add(t.dataset.id);else state.selected.delete(t.dataset.id);persist();const row=t.closest('.wordrow');row?.classList.toggle('selected',t.checked);if(state.onlySelected)refreshRows();const s=document.getElementById('selCount');if(s)s.textContent=state.selected.size+' cụm đã chọn';return}
 if(a==='only-selected'){state.onlySelected=t.checked;refreshRows();const heading=document.querySelector('.kb-cards-heading h3');if(heading)heading.textContent=state.onlySelected?'CÁC CỤM TỪ ĐÃ CHỌN':`QUESTION ${currentSection().question} – ${currentSection().title}`;return}
 if(a==='test-select'){state.test=+t.value;state.q=0;state.onlySelected=false;state.search='';render();return}
-if(state.screen!=='game')return;const g=state.game;
+if(state.screen==='timed'){if(a==='practice-prep'&&practiceData?.stage==='ready'){practiceData.prep=Math.max(0,Math.min(180,parseInt(t.value)||0));practiceData.remaining=practiceData.prep;const n=document.getElementById('practiceClock');if(n)n.textContent=mmss(practiceData.prep)}if(a==='practice-answer'&&practiceData?.stage==='ready'){practiceData.answer=Math.max(5,Math.min(300,parseInt(t.value)||15))}return}if(state.screen!=='game')return;const g=state.game;
 if(a==='fly-lang'){g.lang=t.value;flySpeak();return}
 if(a==='fly-speed'){g.speed=+t.value;const el=document.getElementById('flySpeedLabel');if(el)el.textContent=g.speed+'×';return}
 if(a==='echo-setting'){g[t.dataset.key]=+t.value;return}if(a==='echo-auto'){g.autoPlay=t.checked;return}}
@@ -258,7 +314,7 @@ app.addEventListener('pointerdown',e=>{
  e.preventDefault();chooseFlying(b.dataset.id,b);
 });
 app.addEventListener('click',onClick);app.addEventListener('change',onChange);app.addEventListener('input',e=>{if(e.target.id==='phraseSearch'){state.search=e.target.value;refreshRows()}});
-window.addEventListener('beforeunload',()=>{stopFlying();cancelSound()});
-window.addEventListener('message',e=>{if(e.data&&e.data.type==='HENRY_TOEIC_PAUSE'){stopFlying();cancelSound()}});
+window.addEventListener('beforeunload',()=>{resetPractice();stopFlying();cancelSound()});
+window.addEventListener('message',e=>{if(e.data&&e.data.type==='HENRY_TOEIC_PAUSE'){stopPracticeTimer();stopPracticeMedia();stopFlying();cancelSound()}});
 render();
 })();
