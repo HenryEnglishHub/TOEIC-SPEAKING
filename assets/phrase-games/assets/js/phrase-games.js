@@ -319,7 +319,10 @@ function renderGame(){
      const json=JSON.stringify(words).replace(/</g,'\\u003c').replace(/>/g,'\\u003e');
      const pattern=/const words=\[[\s\S]*?\];(?=\s*const \$=id)/;
      if(!pattern.test(template))throw Error('No Word Echo data slot');
-     f.srcdoc=template.replace(pattern,()=>`const words=${json};`);
+     const wordEchoDoc=template.replace(pattern,()=>`const words=${json};`);
+     // Reuse the common bilingual UI layer in the original IELTS Word Echo design.
+     // Its source/animations remain unchanged; it only translates interface labels.
+     f.srcdoc=wordEchoDoc.replace('</body>','<script src="../js/ui-language.js?v=20261105-v1"></'+'script></body>');
    }catch(err){console.error('Word Echo source unavailable',err);app.innerHTML=baseTop()+`<main class="container"><p>Không tải được Word Echo. Vui lòng thử mở trang trên Chrome hoặc Edge.</p><button class="btn orange" data-action="home">← Quay lại</button></main>`}
    return;
  }
