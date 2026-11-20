@@ -1,0 +1,133 @@
+/* 2026-11-20 responsive density + IELTS-style game additions.
+   Section 04 (phraseGameScreen/iframe) intentionally remains isolated and unchanged. */
+:root{--henry-navy:#000055;--henry-orange:#f05a00}
+html,body{max-width:100%;overflow-x:hidden}
+button,input,select{max-width:100%}
+.hubMinimalWrap{max-width:1540px}
+.hubMinimalIntro{margin-top:clamp(22px,3vw,38px);margin-bottom:18px}
+.hubMinimalCards{gap:12px}
+.hubMinimalCard{min-height:250px;padding:18px 17px}
+.hubMinimalIcon{margin-bottom:14px}
+.hubMinimalText{min-height:48px;line-height:1.5}
+@media(min-width:1500px){.hubMinimalCards{gap:16px}.hubMinimalCard{min-height:260px}}
+/* Main TOEIC exam: keep the prompt and controls visible without wasting width. */
+#examApp{grid-template-columns:205px minmax(0,1fr);gap:0}
+#examApp .sidebar{padding:14px 12px}
+#examApp .main{min-width:0;padding:16px clamp(14px,2vw,28px) 35px}
+#examApp .topline{margin-bottom:10px}
+#examApp .questionbody{padding:clamp(13px,1.5vw,20px);min-height:0}
+#examApp .content{padding:clamp(14px,1.5vw,20px);line-height:1.55}
+#examApp .picturewrap img{max-height:min(48vh,430px)}
+#examApp .controls{padding:12px 16px;gap:8px}
+#examApp .footerbar{margin-top:10px}
+#examApp .more{margin-top:12px}
+@media(max-width:900px){
+ #examApp{display:block}
+ #examApp .sidebar{height:auto;min-height:0;padding:10px 12px;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px}
+ #examApp .sidebar .brand{font-size:17px}
+ #examApp .sidebar .sub{display:none}
+ #examApp .mobileSet{display:block;grid-column:1/-1}
+ #examApp .setlist,#examApp .search{display:none}
+ #examApp .main{padding:12px 12px 28px}
+}
+@media(max-width:600px){
+ #examApp .topline{align-items:flex-start;gap:8px}
+ #examApp .topline h1{font-size:19px;margin:0}
+ #examApp .topline p{font-size:11px;margin:3px 0 0}
+ #examApp .chip{font-size:9px;padding:5px 7px}
+ #examApp .tabs{display:flex;overflow-x:auto;gap:5px;padding-bottom:4px;scrollbar-width:thin}
+ #examApp .tab{flex:0 0 auto;min-width:66px;min-height:48px;padding:7px 9px;font-size:10px}
+ #examApp .tab small{font-size:8px}
+ #examApp .questionhead{padding:10px 12px}
+ #examApp .questionhead strong{font-size:15px}
+ #examApp .questionbody{padding:10px;min-height:0}
+ #examApp .instruction{font-size:12px;margin-bottom:8px}
+ #examApp .content{font-size:14px;padding:11px;line-height:1.5}
+ #examApp .qprompt{font-size:15px;padding:12px}
+ #examApp .picturewrap img{max-height:36vh}
+ #examApp .controls{padding:10px;gap:6px}
+ #examApp .btn{font-size:11px;padding:9px 10px}
+ #examApp .timer{min-width:100px;padding:7px 9px}
+ #examApp .timer .sec{font-size:19px}
+ #examApp .footerbar{gap:7px}
+ #examApp .progress{font-size:11px}
+ #examApp .more{font-size:10px;line-height:1.45}
+}
+/* Section 03 vocabulary workbench: dense but legible cards on all breakpoints. */
+#lex551Screen .lexArea{grid-template-columns:190px minmax(0,1fr);gap:8px;padding:8px}
+#lex551Screen .lexSide{padding:9px}
+#lex551Screen .lexContent{padding:10px}
+#lex551Screen .lexWords{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+#lex551Screen .lexWord{padding:8px;min-width:0}
+#lex551Screen .lexWord b{font-size:14px}
+#lex551Screen .lexMeaning{font-size:11px;margin-top:4px}
+#lex551Screen .lexEx{font-size:10px;margin-top:4px;padding-top:4px;-webkit-line-clamp:2}
+#lex551Screen .lexModeBtns{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding-bottom:7px}
+#lex551Screen .lexModeBtn{min-height:43px;padding:6px 5px;font-size:11px}
+#lex551Screen .lexModeBtn span{font-size:17px;margin:0 4px 0 0;display:inline}
+#lex551Screen .lexToolbar{margin:5px 0;gap:5px}
+#lex551Screen .lexQuick{padding:5px 0;gap:5px}
+#lex551Screen .lexSearch,#lex551Screen .lexMobileCat,#lex551Screen .lexRoundSelect{height:35px}
+#lex551Screen .lexGameCard{padding:18px 14px;border-radius:16px}
+#lex551Screen .lexGameWord{font-size:clamp(23px,4vw,36px)}
+#lex551Screen .lexChoices{gap:7px}
+#lex551Screen .lexChoice{min-height:52px;padding:11px 8px;font-size:12px}
+#lex551Screen .lexGameActions{gap:6px;margin-top:12px}
+#lex551Screen .lexBtn{min-height:34px;padding:7px 9px}
+#lex551Screen .lexGamePrompt{margin:6px 0 10px}
+#lex551Screen .lexIeltsFull{position:fixed;inset:0;z-index:10000;background:#050812}
+#lex551Screen .lexIeltsFull iframe{display:block;width:100%;height:100%;border:0;background:#050812}
+#lex551Screen .lexIeltsExit{position:fixed;z-index:10002;left:12px;bottom:14px;border:1px solid #ffffff75;border-radius:12px;background:#060c1eec;color:#fff;padding:10px 14px;font-weight:850;box-shadow:0 5px 20px #0006}
+#lex551Screen .lexCountdown{font-size:clamp(32px,6vw,52px);font-weight:950;color:var(--lxO);margin:8px}
+#lex551Screen .lexFillInput{width:min(100%,420px);height:46px;border:1px solid #cfd8e8;border-radius:12px;padding:0 13px;font:inherit;font-size:16px}
+#lex551Screen .lexFillPrompt{margin:18px 0}
+@media(max-width:900px){
+ #lex551Screen .lexArea{display:flex;flex-direction:column}
+ #lex551Screen .lexSide{display:none}
+ #lex551Screen .lexContent{flex:1}
+ #lex551Screen .lexMobileCat{display:block;width:34%;flex:0 1 34%}
+ #lex551Screen .lexWords{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:600px){
+ #lex551Screen .lexTop{min-height:44px;max-height:48px;padding:5px 7px;gap:5px}
+ #lex551Screen .lexTitle{font-size:10px;line-height:1.15}
+ #lex551Screen .lexTitle small{font-size:7px}
+ #lex551Screen .lexTop .lexTopBtn{font-size:9px;min-height:29px;padding:5px 7px;white-space:nowrap}
+ #lex551Screen .lexArea{padding:4px}
+ #lex551Screen .lexContent{padding:7px}
+ #lex551Screen .lexHead{gap:5px}
+ #lex551Screen h1{font-size:17px}
+ #lex551Screen .lexSub{display:none}
+ #lex551Screen .lexStat{font-size:8px;padding:4px 6px}
+ #lex551Screen .lexToolbar{display:flex;flex-wrap:wrap}
+ #lex551Screen .lexMobileCat{width:100%;flex:1 1 100%;height:32px}
+ #lex551Screen .lexSearch{width:100%;flex:1 1 100%;height:33px}
+ #lex551Screen .lexToolbar>.lexBtn{min-height:30px;padding:5px 7px;font-size:10px}
+ #lex551Screen .lexQuick{max-height:60px;overflow:auto;align-content:flex-start}
+ #lex551Screen .lexQuick strong{font-size:10px}
+ #lex551Screen .lexQuick .lexBtn{min-height:28px;font-size:9px;padding:4px 6px}
+ #lex551Screen .lexModeBtns{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+ #lex551Screen .lexModeBtn{min-height:42px;padding:4px 2px;font-size:9px;line-height:1.15;border-radius:8px}
+ #lex551Screen .lexModeBtn span{display:block;font-size:16px;margin:0 0 2px}
+ #lex551Screen .lexWords{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;padding:2px}
+ #lex551Screen .lexWord{padding:7px;border-radius:9px}
+ #lex551Screen .lexWord b{font-size:12px}
+ #lex551Screen .lexIPA{font-size:9px;margin-top:1px}
+ #lex551Screen .lexMeta{font-size:8px}
+ #lex551Screen .lexMeaning{font-size:10px;line-height:1.25}
+ #lex551Screen .lexEx{font-size:9px;line-height:1.25;-webkit-line-clamp:2}
+ #lex551Screen .lexSpeak{height:27px;min-width:27px;font-size:13px;border-radius:7px}
+ #lex551Screen .lexWordTop{gap:4px}
+ #lex551Screen .lexWordTop input{width:13px;height:13px}
+ #lex551Screen .lexGameBar{margin-bottom:5px}
+ #lex551Screen .lexGameFrame{padding:0}
+ #lex551Screen .lexGameCard{padding:14px 10px}
+ #lex551Screen .lexGameMeaning{font-size:19px}
+ #lex551Screen .lexChoices{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+ #lex551Screen .lexChoice{font-size:11px;min-height:48px;padding:8px 5px}
+ #lex551Screen .lexBtn{font-size:10px;min-height:31px;padding:6px 7px}
+}
+@media(max-width:360px){
+ #lex551Screen .lexWords{grid-template-columns:1fr}
+ #lex551Screen .lexModeBtn{font-size:8px}
+}
