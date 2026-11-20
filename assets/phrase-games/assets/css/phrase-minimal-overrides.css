@@ -1,0 +1,24 @@
+/* Henry TOEIC Phrase Practice — remove the sections marked in the user's screenshots.
+   Keep the topic/test selector, selection controls, question tabs, phrase content and games. */
+.kb-hero,
+.search-wrap {
+  display: none !important;
+}
+
+/* Close the vertical gaps left by the removed intro and search field. */
+.kb-layout,
+.kb-main,
+.kb-controls,
+.kb-toolbar {
+  margin-top: 0;
+}
+
+@media (max-width: 700px) {
+  .kb-hero,
+  .search-wrap {
+    display: none !important;
+  }
+  .topic-switch {
+    margin-top: 0 !important;
+  }
+}
