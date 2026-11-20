@@ -1,0 +1,66 @@
+/* Layout repair: preserve the original two-column desktop grid. */
+html, body { width:100%; max-width:100%; overflow-x:hidden; }
+#lex551Screen { width:100%; min-width:0; }
+#lex551Screen .lexLayout {
+  width:100%; max-width:1500px; height:auto !important; min-height:100vh;
+  display:flex; flex-direction:column; margin:0 auto; overflow:visible !important;
+  font-family:"Nunito Sans","Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+#lex551Screen .lexArea {
+  width:100%; min-width:0; display:grid !important;
+  grid-template-columns:240px minmax(0,1fr) !important;
+  flex:1 0 auto; min-height:0; gap:14px; padding:14px;
+  overflow:visible !important;
+}
+#lex551Screen .lexSide {
+  display:flex !important; min-width:0; min-height:0; height:max-content;
+  max-height:calc(100vh - 100px); overflow:hidden;
+}
+#lex551Screen .lexCats { min-height:0; overflow-y:auto; }
+#lex551Screen .lexContent {
+  display:block !important; width:100%; min-width:0; min-height:0;
+  height:auto !important; overflow:visible !important;
+  font-family:"Nunito Sans","Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+#lex551Screen .lexWords {
+  display:grid !important; grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+  width:100%; min-width:0; height:auto !important; max-height:none !important;
+  overflow:visible !important; align-content:start; gap:10px;
+}
+#lex551Screen .lexWord, #lex551Screen .lexWord * {
+  min-width:0; font-family:"Nunito Sans","Be Vietnam Pro",system-ui,sans-serif !important;
+  overflow-wrap:anywhere;
+}
+/* Remove only the redundant controls previously marked; keep topic navigation and word selection. */
+#lex551Screen .lexEyebrow,
+#lex551Screen .lexSub,
+#lex551Screen .lexStat,
+#lex551Screen .lexBankTabs,
+#lex551Screen .lexSearch,
+#lex551Screen [data-lx="selectedOnly"],
+#lex551Screen .lexDensityBtn,
+#lex551Screen .lexNote { display:none !important; }
+#lex551Screen .lexHead { margin-bottom:10px; }
+#lex551Screen .lexToolbar { margin:8px 0 10px; }
+#lex551Screen .lexQuick { display:flex; flex-wrap:wrap; gap:8px; }
+#lex551Screen .lexModeBtns { grid-template-columns:repeat(4,minmax(0,1fr)); }
+@media(max-width:1000px) {
+  #lex551Screen .lexArea { grid-template-columns:210px minmax(0,1fr) !important; }
+  #lex551Screen .lexWords { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+}
+@media(max-width:700px) {
+  #lex551Screen .lexArea {
+    display:block !important; padding:8px; overflow:visible !important;
+  }
+  #lex551Screen .lexSide { display:none !important; }
+  #lex551Screen .lexContent {
+    width:100% !important; max-width:none !important; padding:12px !important;
+    overflow:visible !important;
+  }
+  #lex551Screen .lexMobileCat {
+    display:block !important; width:100% !important; flex:1 1 100% !important;
+  }
+  #lex551Screen .lexWords { grid-template-columns:1fr !important; }
+  #lex551Screen .lexModeBtns { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  #lex551Screen .lexTop { position:sticky; top:0; z-index:30; }
+}
