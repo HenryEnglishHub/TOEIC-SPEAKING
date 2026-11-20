@@ -1,7 +1,54 @@
 <!DOCTYPE html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Henry English | 30 TOEIC Speaking Tests + 200 Difficult Words</title><link rel="stylesheet" href="assets/css/base.css"><link rel="stylesheet" href="assets/css/lex-551.css" id="henryLex551Styles">
 
 <link rel="stylesheet" href="assets/css/branch-compact.css" id="henryThreeBranchCompactCSS">
-<link rel="stylesheet" href="assets/css/lex-tabs.css" id="lex1686TabsStyle"><link rel="stylesheet" href="assets/css/phrase-integration.css"><link rel="stylesheet" href="assets/css/hub-minimal.css"><link rel="stylesheet" href="assets/css/ui-language.css?v=20261105-v1"><link rel="stylesheet" href="assets/css/layout-repair.css?v=20261120-repair3"></head><body data-henry-page="hub"><header class="modebar"><div class="modebrand">HENRY <span>ENGLISH</span><small>TOEIC SPEAKING • 30 FULL TESTS + PRONUNCIATION</small></div><button type="button" class="returnHub" id="returnHub" aria-label="Về trang chọn bốn mục học">⌂ &nbsp; 4 mục học</button><nav class="modeactions" aria-label="Các nhánh học"><button type="button" id="modeExam" class="modebtn active" aria-pressed="true">📝 Luyện đề TOEIC (30 SET)</button><button type="button" id="modeVocab" class="modebtn" aria-pressed="false">🔤 Các từ khó phát âm</button><button type="button" id="modeLex" class="modebtn" aria-pressed="false">📚 Học từ vựng theo chủ đề (1.686 từ)</button></nav></header>
+<link rel="stylesheet" href="assets/css/lex-tabs.css" id="lex1686TabsStyle"><link rel="stylesheet" href="assets/css/phrase-integration.css"><link rel="stylesheet" href="assets/css/hub-minimal.css"><link rel="stylesheet" href="assets/css/ui-language.css?v=20261105-v1"><style id="henry-mobile-game-carousel">
+/* HENRY ENGLISH — Mobile game carousel + vocabulary-first scroll layout */
+@media (max-width:720px){
+  body[data-henry-page="lex"]{overflow-x:hidden!important;overflow-y:auto!important;height:auto!important;min-height:100%;}
+  #lex551Screen{height:auto!important;min-height:100dvh!important;overflow:visible!important;}
+  #lex551Screen .lexLayout{height:auto!important;min-height:100dvh!important;max-width:none!important;overflow:visible!important;}
+  #lex551Screen .lexTop{position:sticky;top:0;z-index:60;flex:0 0 auto;}
+  #lex551Screen .lexArea{display:block!important;height:auto!important;min-height:0!important;overflow:visible!important;padding:7px!important;}
+  #lex551Screen .lexSide{display:none!important;}
+  #lex551Screen .lexContent{display:block!important;width:100%!important;height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important;padding:10px!important;}
+  #lex551Screen #lexListMode{display:block!important;flex:none!important;height:auto!important;min-height:0!important;overflow:visible!important;}
+  #lex551Screen .lexHead{display:flex;align-items:center;gap:8px;margin:0 0 8px;}
+  #lex551Screen .lexToolbar{display:flex;flex-wrap:wrap;gap:7px;margin:7px 0!important;}
+  #lex551Screen .lexMobileCat{display:block!important;width:100%!important;flex:1 1 100%!important;min-width:0;height:39px;}
+  #lex551Screen .lexSearch{display:block!important;width:100%!important;flex:1 1 100%!important;height:39px;}
+  #lex551Screen .lexQuick{max-height:none!important;overflow:visible!important;display:flex;flex-wrap:wrap;gap:6px;padding:7px 0!important;margin:0 0 7px;}
+  #lex551Screen .lexQuick strong{flex:1 1 100%;}
+  #lex551Screen .lexQuick .lexBtn{flex:1 1 auto;min-height:32px;padding:6px 8px;white-space:nowrap;}
+  /* Only the game selector is horizontally swipeable on phones. */
+  #lex551Screen .lexModeBtns{
+    display:flex!important;flex-wrap:nowrap!important;align-items:stretch;gap:8px!important;
+    width:100%;max-width:100%;overflow-x:auto!important;overflow-y:hidden!important;
+    padding:3px 2px 12px!important;margin:2px 0 8px!important;
+    scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;
+    scrollbar-width:none;touch-action:pan-x pan-y;
+  }
+  #lex551Screen .lexModeBtns::-webkit-scrollbar{display:none;}
+  #lex551Screen .lexModeBtn{
+    display:flex!important;flex:0 0 138px!important;width:138px!important;min-width:138px!important;
+    min-height:48px!important;max-height:58px;align-items:center;justify-content:center;gap:7px;
+    padding:8px 10px!important;border-radius:12px!important;font-size:12px!important;line-height:1.2;
+    white-space:normal;text-align:center;scroll-snap-align:start;
+  }
+  #lex551Screen .lexModeBtn span{display:inline!important;flex:0 0 auto;font-size:19px!important;margin:0!important;}
+  #lex551Screen .lexModeBtns:after{content:"";flex:0 0 2px;}
+  /* The word bank follows immediately below the swipe row and uses normal page scrolling. */
+  #lex551Screen #lexWordList.lexWords{
+    display:grid!important;grid-template-columns:1fr!important;gap:7px!important;
+    width:100%;height:auto!important;min-height:0!important;max-height:none!important;
+    flex:none!important;overflow:visible!important;overscroll-behavior:auto!important;
+    padding:2px 0 24px!important;scrollbar-gutter:auto!important;
+  }
+  #lex551Screen .lexWord{min-width:0;padding:10px!important;}
+  #lex551Screen .lexWord b{font-size:15px!important;}
+  #lex551Screen .lexEx{display:block!important;-webkit-line-clamp:unset!important;overflow:visible!important;}
+  #lex551Screen #lexGameMode:not([hidden]){display:flex!important;flex-direction:column;min-height:calc(100dvh - 55px);overflow:visible!important;}
+}
+</style></head><body data-henry-page="hub"><header class="modebar"><div class="modebrand">HENRY <span>ENGLISH</span><small>TOEIC SPEAKING • 30 FULL TESTS + PRONUNCIATION</small></div><button type="button" class="returnHub" id="returnHub" aria-label="Về trang chọn bốn mục học">⌂ &nbsp; 4 mục học</button><nav class="modeactions" aria-label="Các nhánh học"><button type="button" id="modeExam" class="modebtn active" aria-pressed="true">📝 Luyện đề TOEIC (30 SET)</button><button type="button" id="modeVocab" class="modebtn" aria-pressed="false">🔤 Các từ khó phát âm</button><button type="button" id="modeLex" class="modebtn" aria-pressed="false">📚 Học từ vựng theo chủ đề (1.686 từ)</button></nav></header>
 <section id="henryHub" class="henryHub" aria-label="Chọn nội dung TOEIC Speaking">
   <div class="hubMinimalWrap">
     <header class="hubMinimalTop">
