@@ -1,0 +1,29 @@
+/* Responsive cleanup. Keep original design system active; never replace base styles. */
+html, body { max-width:100%; overflow-x:hidden; }
+body, button, input, select, textarea { font-family:"Nunito Sans","Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",Arial,sans-serif; }
+
+/* The pronunciation content should scroll with the document, not inside a tiny panel. */
+#vocabApp { height:auto !important; min-height:100vh !important; overflow:visible !important; }
+#vocabApp .vx-hero, #vocabApp .vx-gameinfo { display:none !important; }
+#vocabApp .vx-stage { height:auto !important; max-height:none !important; overflow:visible !important; }
+
+/* Topic vocabulary: remove the redundant promotional/header rows only. */
+#lex551Screen, #lex551Screen .lexLayout, #lex551Screen .lexArea,
+#lex551Screen .lexContent { height:auto !important; min-height:0 !important; overflow:visible !important; }
+#lex551Screen .lexSide { display:none !important; }
+#lex551Screen .lexEyebrow, #lex551Screen .lexSub,
+#lex551Screen .lexSearch, #lex551Screen .lexNote { display:none !important; }
+#lex551Screen .lexWords {
+  height:auto !important; max-height:none !important; overflow:visible !important;
+  display:grid !important; grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+  gap:10px !important; align-content:start !important;
+}
+#lex551Screen .lexContent, #lex551Screen .lexWord,
+#lex551Screen .lexWord * { font-family:"Nunito Sans","Be Vietnam Pro",system-ui,sans-serif !important; }
+@media(max-width:900px) {
+  #lex551Screen .lexWords { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+}
+@media(max-width:600px) {
+  #lex551Screen .lexWords { grid-template-columns:1fr !important; }
+  #lex551Screen .lexContent { padding:12px !important; }
+}
